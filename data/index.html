@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flood Monitor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-alt: #162032;
+      --text-primary: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --orange: #f97316;
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, .35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      text-align: center;
+      padding: 1.5rem 0 1rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: .85rem;
+      margin-top: .25rem;
+    }
+
+    /* ── Grid ──────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      gap: 1rem;
+      max-width: 960px;
+      margin: 0 auto;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 640px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .grid .full {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* ── Cards ─────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, .04);
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+    }
+
+    .card h2 {
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: .75rem;
+    }
+
+    /* ── Live Level ────────────────────────────────────── */
+    .level-value {
+      font-size: 3rem;
+      font-weight: 700;
+      line-height: 1;
+      transition: color .3s;
+    }
+
+    .level-unit {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      margin-left: .15rem;
+    }
+
+    .level-bar-wrap {
+      margin-top: .75rem;
+      background: rgba(255, 255, 255, .06);
+      border-radius: 8px;
+      height: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .level-bar {
+      height: 100%;
+      border-radius: 8px;
+      width: 0%;
+      transition: width .6s ease, background .4s;
+      background: var(--green);
+    }
+
+    .thresholds-info {
+      display: flex;
+      justify-content: space-between;
+      margin-top: .5rem;
+      font-size: .75rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Status Badge ──────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: .3rem .8rem;
+      border-radius: 20px;
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      transition: all .3s;
+    }
+
+    .badge-normal {
+      background: rgba(34, 197, 94, .15);
+      color: var(--green);
+    }
+
+    .badge-warning {
+      background: rgba(234, 179, 8, .15);
+      color: var(--yellow);
+      animation: pulse 1.5s infinite;
+    }
+
+    .badge-alarm {
+      background: rgba(239, 68, 68, .15);
+      color: var(--red);
+      animation: pulse .7s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .5;
+      }
+    }
+
+    /* ── Weather ───────────────────────────────────────── */
+    .weather-status {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .weather-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .weather-text .forecast {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .weather-text .modifier {
+      font-size: .8rem;
+      color: var(--text-muted);
+      margin-top: .15rem;
+    }
+
+    .rain-active {
+      color: var(--orange);
+    }
+
+    /* ── Chart ─────────────────────────────────────────── */
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 280px;
+    }
+
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── Connection Dot ────────────────────────────────── */
+    .conn-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: var(--red);
+      transition: background .3s;
+    }
+
+    .conn-dot.connected {
+      background: var(--green);
+    }
+
+    /* ── Simulation Toggle ─────────────────────────────── */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-round {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #334155;
+      transition: .4s;
+      border-radius: 20px;
+    }
+
+    .slider-round:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider-round {
+      background-color: var(--orange);
+    }
+
+    input:checked+.slider-round:before {
+      transform: translateX(20px);
+    }
+
+    /* ── Footer ────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 1.5rem 0;
+      color: var(--text-muted);
+      font-size: .75rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>&#x1F30A; Flood Monitor</h1>
+    <p><span class="conn-dot" id="connDot"></span><span id="connText">Connecting…</span></p>
+  </header>
+
+  <div class="grid">
+
+    <!-- Live Water Level -->
+    <div class="card">
+      <h2>Water Level (distance)</h2>
+      <div>
+        <span class="level-value" id="levelVal">--</span><span class="level-unit">cm</span>
+      </div>
+      <div class="level-bar-wrap">
+        <div class="level-bar" id="levelBar"></div>
+      </div>
+      <div class="thresholds-info">
+        <span>&#x26A0; Warn: <span id="warnVal">--</span>cm</span>
+        <span>&#x1F6A8; Alarm: <span id="alarmVal">--</span>cm</span>
+      </div>
+    </div>
+
+    <!-- Status + Weather -->
+    <div class="card">
+      <h2>Status</h2>
+      <div style="margin-bottom:1rem">
+        <span class="badge badge-normal" id="statusBadge">NORMAL</span>
+      </div>
+      <h2>Weather Forecast</h2>
+      <div class="weather-status">
+        <span class="weather-icon" id="weatherIcon">&#x2600;&#xFE0F;</span>
+        <div class="weather-text">
+          <div class="forecast" id="weatherDesc">Loading…</div>
+          <div class="modifier" id="weatherMod">Thresholds: default</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulation Mode -->
+    <div class="card">
+      <h2>Simulation Mode</h2>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem;">
+        <label class="switch">
+          <input type="checkbox" id="simToggle">
+          <span class="slider-round"></span>
+        </label>
+        <span id="simStatusText">Disabled</span>
+      </div>
+      <div id="simControls" style="opacity:0.5; pointer-events:none;">
+        <label style="display:block; font-size:0.75rem; margin-bottom:5px;">Simulated Distance: <span
+            id="simVal">100</span> cm</label>
+        <input type="range" id="simSlider" min="2" max="400" value="100"
+          style="width:100%; accent-color:var(--accent);">
+      </div>
+    </div>
+
+    <!-- Historical Chart -->
+    <div class="card full">
+      <h2>History (last 24 h)</h2>
+      <div class="chart-wrap">
+        <canvas id="histChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>ESP32 Flood Monitoring System &middot; Last updated: <span id="lastUpdate">Never</span></footer>
+
+  <script>
+    // ─── WebSocket ────────────────────────────────────────────────────────────
+    const wsUrl = `ws://${location.host}/ws`;
+    let ws;
+    let reconnectTimer;
+
+    function connectWS() {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('connDot').classList.add('connected');
+        document.getElementById('connText').textContent = 'Connected';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('connDot').classList.remove('connected');
+        document.getElementById('connText').textContent = 'Reconnecting…';
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectWS, 3000);
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          updateLive(d);
+        } catch (e) { console.error('WS parse error', e); }
+      };
+    }
+
+    function fetchStatus() {
+      fetch('/api/status')
+        .then(r => r.json())
+        .then(d => updateLive(d))
+        .catch(err => console.error('Status fetch error:', err));
+    }
+
+    function updateLive(d) {
+      if (!d) return;
+
+      // Distance value
+      const levelEl = document.getElementById('levelVal');
+      const bar = document.getElementById('levelBar');
+
+      if (d.distance !== undefined && d.distance > 0) {
+        levelEl.textContent = d.distance.toFixed(1);
+
+        // Color + bar
+        // Bar percentage: 100% when distance = 0 (fully flooded), 0% when distance >= 2*warning
+        const maxDist = (d.warning || 30) * 2;
+        const pct = Math.max(0, Math.min(100, ((maxDist - d.distance) / maxDist) * 100));
+        bar.style.width = pct + '%';
+
+        if (d.status === 'ALARM') {
+          levelEl.style.color = 'var(--red)';
+          bar.style.background = 'linear-gradient(90deg, var(--red), var(--orange))';
+        } else if (d.status === 'WARNING') {
+          levelEl.style.color = 'var(--yellow)';
+          bar.style.background = 'linear-gradient(90deg, var(--yellow), var(--orange))';
+        } else {
+          levelEl.style.color = 'var(--green)';
+          bar.style.background = 'linear-gradient(90deg, var(--green), var(--accent))';
+        }
+      } else {
+        levelEl.textContent = '--';
+        levelEl.style.color = 'var(--text-muted)';
+        bar.style.width = '0%';
+      }
+
+      // Thresholds
+      if (d.warning !== undefined) document.getElementById('warnVal').textContent = d.warning.toFixed(1);
+      if (d.alarm !== undefined) document.getElementById('alarmVal').textContent = d.alarm.toFixed(1);
+
+      // Status badge
+      const badge = document.getElementById('statusBadge');
+      if (d.status) {
+        badge.textContent = d.status;
+        badge.className = 'badge badge-' + d.status.toLowerCase();
+      }
+
+      // Weather
+      const icon = document.getElementById('weatherIcon');
+      const desc = document.getElementById('weatherDesc');
+      const mod = document.getElementById('weatherMod');
+
+      desc.textContent = d.forecast || 'N/A';
+      if (d.rainExpected) {
+        icon.innerHTML = '&#x1F327;&#xFE0F;';
+        mod.textContent = 'Thresholds lowered 20% (rain expected)';
+        mod.classList.add('rain-active');
+      } else {
+        icon.innerHTML = '&#x2600;&#xFE0F;';
+        mod.textContent = 'Thresholds: default';
+        mod.classList.remove('rain-active');
+      }
+
+      // Update timestamp
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    }
+
+    // ─── Simulation ───────────────────────────────────────────────────────────
+    const simToggle = document.getElementById('simToggle');
+    const simSlider = document.getElementById('simSlider');
+    const simVal = document.getElementById('simVal');
+    const simControls = document.getElementById('simControls');
+    const simStatusText = document.getElementById('simStatusText');
+
+    function sendSim() {
+      const formData = new FormData();
+      formData.append('active', simToggle.checked);
+      formData.append('distance', simSlider.value);
+
+      fetch('/api/simulate', {
+        method: 'POST',
+        body: formData
+      }).catch(err => console.error('Sim error:', err));
+    }
+
+    simToggle.onchange = () => {
+      const active = simToggle.checked;
+      simStatusText.textContent = active ? 'ENABLED' : 'Disabled';
+      simStatusText.style.color = active ? 'var(--orange)' : 'var(--text-muted)';
+      simControls.style.opacity = active ? '1' : '0.5';
+      simControls.style.pointerEvents = active ? 'all' : 'none';
+      sendSim();
+    };
+
+    simSlider.oninput = () => {
+      simVal.textContent = simSlider.value;
+    };
+
+    simSlider.onchange = () => {
+      sendSim();
+    };
+
+    connectWS();
+    fetchStatus();
+
+    // ─── Historical Chart ─────────────────────────────────────────────────────
+    const ctx = document.getElementById('histChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Distance (cm)',
+          data: [],
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 2,
+          pointBackgroundColor: '#38bdf8',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', maxTicksLimit: 12, font: { size: 10 } },
+            grid: { color: 'rgba(255,255,255,.04)' }
+          },
+          y: {
+            reverse: true,   // lower distance = higher water → show danger at top
+            ticks: { color: '#94a3b8', font: { size: 10 } },
+            grid: { color: 'rgba(255,255,255,.04)' },
+            title: { display: true, text: 'Distance (cm)', color: '#94a3b8' }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#e2e8f0' } },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleColor: '#e2e8f0',
+            bodyColor: '#94a3b8',
+            borderColor: '#334155',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+
+    function fetchHistory() {
+      fetch('/api/history')
+        .then(r => r.text())
+        .then(csv => {
+          const lines = csv.trim().split('\n');
+          if (lines.length < 2) return;
+
+          const labels = [];
+          const data = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',');
+            if (parts.length < 2) continue;
+            const ts = parseInt(parts[0]);
+            const dist = parseFloat(parts[1]);
+            // Format timestamp as HH:MM
+            const d = new Date(ts * 1000);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            labels.push(hh + ':' + mm);
+            data.push(dist);
+          }
+
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = data;
+          document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        })
+        .catch(err => console.error('History fetch error:', err));
+    }
+
+    // Initial load + refresh every 10 min
+    fetchHistory();
+    setInterval(fetchHistory, 600000);
+  </script>
+</body>
+
+</html>

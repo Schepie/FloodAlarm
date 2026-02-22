@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flood Monitor Mobile</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #38bdf8;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --red: #ef4444;
+            --orange: #f97316;
+            --green: #22c55e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .data-point {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .value {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .badge-NORMAL {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--green);
+        }
+
+        .badge-WARNING {
+            background: rgba(249, 115, 22, 0.2);
+            color: var(--orange);
+        }
+
+        .badge-ALARM {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--red);
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--accent);
+            border: none;
+            color: #0f172a;
+            font-weight: 600;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        button:active {
+            opacity: 0.8;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #334155;
+            outline: none;
+            margin: 16px 0;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-switch {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #334155;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider-switch:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider-switch {
+            background-color: var(--orange);
+        }
+
+        input:checked+.slider-switch:before {
+            transform: translateX(26px);
+        }
+
+        #configPage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg);
+            z-index: 100;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="configPage" style="display: none;">
+        <h2>Setup Connection</h2>
+        <p style="color:var(--muted)">Enter the IP address of your ESP8266 Flood Monitor.</p>
+        <input type="text" id="ipInput" placeholder="e.g. 192.168.1.50">
+        <button onclick="saveConfig()">Connect</button>
+    </div>
+
+    <h1>🌊 Flood Monitor App</h1>
+
+    <div class="card">
+        <div class="status-grid">
+            <div class="data-point">
+                <span class="label">Level (cm)</span>
+                <span class="value" id="distText">--</span>
+            </div>
+            <div class="data-point">
+                <span class="label">Status</span>
+                <div id="statusBadge" class="badge badge-NORMAL">CONNECTING</div>
+            </div>
+            <div class="data-point">
+                <span class="label">Warning</span>
+                <span class="value" id="warnText">--</span>
+            </div>
+            <div class="data-point">
+                <span class="label">Alarm</span>
+                <span class="value" id="alarmText">--</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="label">Simulation Mode</span>
+            <label class="switch">
+                <input type="checkbox" id="simToggle">
+                <span class="slider-switch"></span>
+            </label>
+        </div>
+        <div id="simControls" style="opacity: 0.5; pointer-events: none; margin-top: 16px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span class="label">Distance</span>
+                <span id="simVal">100</span>
+            </div>
+            <input type="range" id="simSlider" min="2" max="400" value="100" class="slider">
+        </div>
+    </div>
+
+    <div class="card">
+        <span class="label">Post to Telegram</span>
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+            <input type="text" id="msgInput" placeholder="Typ een bericht...">
+            <button onclick="postMessage()">Send Message</button>
+        </div>
+    </div>
+
+    <button style="background:transparent; border:1px solid #334155; color:var(--muted); font-size:0.8rem;"
+        onclick="resetConfig()">Reset Connection</button>
+
+    <script>
+        let baseUrl = localStorage.getItem('flood_ip');
+        if (!baseUrl) {
+            document.getElementById('configPage').style.display = 'flex';
+        }
+
+        function saveConfig() {
+            let ip = document.getElementById('ipInput').value.trim();
+            if (!ip) return;
+            if (!ip.startsWith('http')) ip = 'http://' + ip;
+            localStorage.setItem('flood_ip', ip);
+            location.reload();
+        }
+
+        function resetConfig() {
+            localStorage.removeItem('flood_ip');
+            location.reload();
+        }
+
+        async function fetchStatus() {
+            if (!baseUrl) return;
+            try {
+                const res = await fetch(`${baseUrl}/api/status`);
+                const d = await res.json();
+
+                document.getElementById('distText').innerText = d.distance > 0 ? d.distance.toFixed(1) : '--';
+                document.getElementById('warnText').innerText = d.warning.toFixed(1);
+                document.getElementById('alarmText').innerText = d.alarm.toFixed(1);
+
+                const badge = document.getElementById('statusBadge');
+                badge.innerText = d.status;
+                badge.className = 'badge badge-' + d.status;
+            } catch (e) {
+                console.error(e);
+                document.getElementById('statusBadge').innerText = 'OFFLINE';
+                document.getElementById('statusBadge').className = 'badge badge-ALARM';
+            }
+        }
+
+        const simToggle = document.getElementById('simToggle');
+        const simSlider = document.getElementById('simSlider');
+        const simVal = document.getElementById('simVal');
+        const simControls = document.getElementById('simControls');
+
+        async function sendSim() {
+            const formData = new FormData();
+            formData.append('active', simToggle.checked);
+            formData.append('distance', simSlider.value);
+
+            await fetch(`${baseUrl}/api/simulate`, {
+                method: 'POST',
+                body: formData
+            });
+        }
+
+        simToggle.onchange = () => {
+            const active = simToggle.checked;
+            simControls.style.opacity = active ? '1' : '0.5';
+            simControls.style.pointerEvents = active ? 'all' : 'none';
+            sendSim();
+        };
+
+        simSlider.oninput = () => {
+            simVal.innerText = simSlider.value;
+        };
+
+        simSlider.onchange = () => {
+            sendSim();
+        };
+
+        async function postMessage() {
+            const msgInput = document.getElementById('msgInput');
+            const msg = msgInput.value.trim();
+            if (!msg) return;
+
+            const formData = new FormData();
+            formData.append('message', msg);
+
+            try {
+                const res = await fetch(`${baseUrl}/api/notify`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    alert('Bericht verzonden!');
+                    msgInput.value = '';
+                } else {
+                    alert('Verzenden mislukt.');
+                }
+            } catch (e) {
+                alert('Fout bij verbinding.');
+            }
+        }
+
+        setInterval(fetchStatus, 3000);
+        fetchStatus();
+    </script>
+</body>
+
+</html>
