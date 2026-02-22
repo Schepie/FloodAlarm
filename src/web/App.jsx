@@ -14,81 +14,54 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 const App = () => {
-    const [baseUrl, setBaseUrl] = useState(localStorage.getItem('flood_ip') || '');
-    const [showConfig, setShowConfig] = useState(!baseUrl);
-    const [ipInput, setIpInput] = useState(baseUrl);
     const [status, setStatus] = useState(null);
     const [isOffline, setIsOffline] = useState(false);
     const [isSimActive, setIsSimActive] = useState(false);
     const [simDistance, setSimDistance] = useState(100);
     const [notifyMsg, setNotifyMsg] = useState('');
 
-    const saveConfig = () => {
-        let ip = ipInput.trim();
-        if (!ip) return;
-        if (!ip.startsWith('http')) ip = 'http://' + ip;
-        localStorage.setItem('flood_ip', ip);
-        setBaseUrl(ip);
-        setShowConfig(false);
-    };
-
     const fetchStatus = async () => {
-        if (!baseUrl) return;
         try {
-            // Use Netlify Function proxy to avoid CORS and Mixed Content issues
-            const res = await fetch(`/.netlify/functions/status?url=${encodeURIComponent(baseUrl)}`);
-            if (!res.ok) throw new Error('Proxy failed');
+            // Now fetching from our global Cloud Store!
+            const res = await fetch(`/.netlify/functions/get-status`);
+            if (!res.ok) throw new Error('Cloud unreachable');
             const data = await res.json();
             setStatus(data);
             setIsOffline(false);
-            setIsSimActive(data.status === 'SIMULATING' || data.status === 'ALARM' || isSimActive);
+
+            // If data is older than 5 minutes, consider it offline
+            const lastSeen = new Date(data.lastSeen);
+            const diff = (new Date() - lastSeen) / 1000 / 60;
+            if (diff > 5) setIsOffline(true);
+
         } catch (e) {
-            console.error(e);
-            setIsOffline(true);
+            console.error("Fetch failed", e);
+            // Don't set offline immediately on one fetch failure, only if data is old
         }
     };
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 5000); // Increased interval to be kind to functions
+        const interval = setInterval(fetchStatus, 10000); // Poll cloud every 10s
         return () => clearInterval(interval);
-    }, [baseUrl]);
+    }, []);
 
     const handleSimChange = async (active, distance) => {
         setIsSimActive(active);
         setSimDistance(distance);
 
-        try {
-            await fetch(`/.netlify/functions/notify?url=${encodeURIComponent(baseUrl)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    // Re-using notify endpoint for simulation for simplicity if needed, 
-                    // or creating a specific simulate.js function. 
-                    // For now, let's stick to the ones we have or update notify to handle it.
-                    // Correct approach: let's update App.jsx to only use what we implemented.
-                    message: `SIM:${active}:${distance}`
-                })
-            });
-        } catch (e) {
-            console.error("Simulation failed", e);
-        }
+        // In "Push" mode, simulation would normally be handled by the ESP8266 
+        // receiving a command. For now, we'll keep the UI state for simulation.
     };
 
     const sendNotify = async () => {
         if (!notifyMsg.trim()) return;
         try {
-            const res = await fetch(`/.netlify/functions/notify?url=${encodeURIComponent(baseUrl)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: notifyMsg })
-            });
-            if (res.ok) {
-                alert('Message sent!');
-                setNotifyMsg('');
-            } else {
-                alert('Send failed via proxy');
-            }
+            // In the Push model, messages go to the Cloud, which then flags the ESP8266 
+            // or sends a direct notification. For now, we'll just log it.
+            console.log("Notification queued:", notifyMsg);
+            alert('Note: Notifications will be implemented via the cloud bridge.');
+            setNotifyMsg('');
         } catch (e) {
             alert('Failed to connect to proxy');
         }
@@ -105,8 +78,8 @@ const App = () => {
     };
 
     const getStatusBadge = () => {
-        if (isOffline) return <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold border border-red-500/30">OFFLINE</span>;
-        if (!status) return <span className="px-3 py-1 bg-sky-500/20 text-sky-400 rounded-full text-xs font-bold border border-sky-500/30">CONNECTING...</span>;
+        if (isOffline) return <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold border border-red-500/30">DISCONNECTED</span>;
+        if (!status) return <span className="px-3 py-1 bg-sky-500/20 text-sky-400 rounded-full text-xs font-bold border border-sky-500/30">WAITING...</span>;
 
         const colors = {
             NORMAL: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -114,11 +87,17 @@ const App = () => {
             ALARM: 'bg-red-500/20 text-red-400 border-red-500/30'
         };
 
-        return <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[status.status]}`}>{status.status}</span>;
+        return <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[status.status] || colors.NORMAL}`}>{status.status}</span>;
+    };
+
+    const formatLastSeen = () => {
+        if (!status?.lastSeen) return "Never";
+        const date = new Date(status.lastSeen);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
 
     return (
-        <div className="max-w-md mx-auto p-5 min-h-screen flex flex-col gap-6 pb-24 relative overflow-hidden">
+        <div className="max-w-md mx-auto p-5 min-h-screen flex flex-col gap-6 pb-24 relative overflow-hidden text-slate-100">
             {/* Background Glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-sky-500/10 blur-[120px] pointer-events-none" />
 
@@ -129,18 +108,12 @@ const App = () => {
                         <Waves className="w-6 h-6 text-sky-400" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight">Flood Monitor</h1>
+                        <h1 className="text-xl font-bold tracking-tight">Flood Monitor <span className="text-sky-500 font-black">Cloud</span></h1>
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold flex items-center gap-1">
-                            <Activity className="w-2.5 h-2.5" /> Real-time System
+                            <Activity className="w-2.5 h-2.5" /> Live Sync Active
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowConfig(true)}
-                    className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white transition-colors"
-                >
-                    <Settings className="w-5 h-5" />
-                </button>
             </header>
 
             {/* Main Stats */}
@@ -157,6 +130,10 @@ const App = () => {
                                 {status ? status.distance.toFixed(1) : '--'}
                             </span>
                             <span className="text-lg font-bold text-slate-500">cm</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
+                            <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
+                            Last Update: {formatLastSeen()}
                         </div>
                     </div>
                     {getStatusBadge()}

@@ -10,6 +10,7 @@
 #include "WeatherService.h"
 #include "WebHandler.h"
 #include "NotificationManager.h"
+#include "CloudSync.h"
 
 // ─── Globals ────────────────────────────────────────────────────────────────
 AsyncWebServer server(80);
@@ -35,6 +36,7 @@ unsigned long lastLogTime         = 0;
 unsigned long lastWeatherPoll     = 0;
 unsigned long lastWSBroadcast     = 0;
 unsigned long lastNotificationTime = 0;
+unsigned long lastCloudPush       = 0;
 
 // ─── NTP Time ───────────────────────────────────────────────────────────────
 unsigned long getEpoch() {
@@ -204,6 +206,24 @@ void loop() {
     if (now - lastWeatherPoll >= WEATHER_POLL_INTERVAL_MS) {
         lastWeatherPoll = now;
         WeatherSvc::update();
+    }
+
+    // ── Cloud Push ──────────────────────────────────────────────────────
+    if (now - lastCloudPush >= CLOUD_PUSH_INTERVAL_MS) {
+        lastCloudPush = now;
+        
+        String statusStr = "NORMAL";
+        if (currentDistance <= alarmThreshold) statusStr = "ALARM";
+        else if (currentDistance <= warningThreshold) statusStr = "WARNING";
+
+        CloudSync::pushData(
+            currentDistance, 
+            warningThreshold, 
+            alarmThreshold,
+            statusStr, 
+            WeatherSvc::isRainExpected(), 
+            WeatherSvc::getForecastDescription()
+        );
     }
 
     // ── Heartbeat ──────────────────────────────────────────────────────

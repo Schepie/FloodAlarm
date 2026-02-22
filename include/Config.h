@@ -16,6 +16,7 @@
 #define LOG_INTERVAL_MS            600000UL     // Log to CSV every 10 min
 #define WEATHER_POLL_INTERVAL_MS   1800000UL    // Poll weather every 30 min
 #define WS_BROADCAST_INTERVAL_MS   2000UL       // WebSocket push every 2 s
+#define CLOUD_PUSH_INTERVAL_MS     15000UL      // Push to Netlify every 15 s
 
 // ─── OpenWeatherMap ─────────────────────────────────────────────────────────
 #define OWM_API_KEY   "7e4bc4f56020ed1937bfaada3797e964"
@@ -45,3 +46,7 @@
 // ─── CSV / LittleFS ────────────────────────────────────────────────────────
 #define HISTORY_PATH     "/history.csv"
 #define MAX_CSV_ENTRIES  144   // 24 hours at 10-min intervals
+
+// ─── Netlify Cloud Push ────────────────────────────────────────────────────
+#define CLOUD_NETLIFY_URL "https://floodalarm.netlify.app/.netlify/functions/push-status"
+#define CLOUD_API_KEY     "change_me_later"
