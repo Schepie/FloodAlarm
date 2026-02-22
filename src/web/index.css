@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.glass-card {
+  @apply bg-slate-800/40 border border-slate-700/50 backdrop-blur-md;
+}
