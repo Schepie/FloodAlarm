@@ -30,13 +30,16 @@ const App = () => {
             setIsOffline(false);
 
             // If data is older than 5 minutes, consider it offline
-            const lastSeen = new Date(data.lastSeen);
-            const diff = (new Date() - lastSeen) / 1000 / 60;
-            if (diff > 5) setIsOffline(true);
+            if (data.lastSeen) {
+                const lastSeen = new Date(data.lastSeen);
+                const diff = (new Date() - lastSeen) / 1000 / 60;
+                if (diff > 5) setIsOffline(true);
+            } else {
+                setIsOffline(true);
+            }
 
         } catch (e) {
             console.error("Fetch failed", e);
-            // Don't set offline immediately on one fetch failure, only if data is old
         }
     };
 
@@ -60,7 +63,7 @@ const App = () => {
             // In the Push model, messages go to the Cloud, which then flags the ESP8266 
             // or sends a direct notification. For now, we'll just log it.
             console.log("Notification queued:", notifyMsg);
-            alert('Note: Notifications will be implemented via the cloud bridge.');
+            alert('Note: Remote configuration push will be implemented in the next firmware update.');
             setNotifyMsg('');
         } catch (e) {
             alert('Failed to connect to proxy');
@@ -87,7 +90,8 @@ const App = () => {
             ALARM: 'bg-red-500/20 text-red-400 border-red-500/30'
         };
 
-        return <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[status.status] || colors.NORMAL}`}>{status.status}</span>;
+        const colorClass = colors[status.status] || colors.NORMAL;
+        return <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colorClass}`}>{status.status}</span>;
     };
 
     const formatLastSeen = () => {
@@ -97,7 +101,7 @@ const App = () => {
     };
 
     return (
-        <div className="max-w-md mx-auto p-5 min-h-screen flex flex-col gap-6 pb-24 relative overflow-hidden text-slate-100">
+        <div className="max-w-md mx-auto p-5 min-h-screen flex flex-col gap-6 pb-24 relative overflow-hidden text-slate-100 font-sans">
             {/* Background Glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-sky-500/10 blur-[120px] pointer-events-none" />
 
@@ -142,16 +146,16 @@ const App = () => {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-700/30">
                         <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Warning</span>
-                        <p className="text-xl font-bold mt-1">{status ? status.warning : '--'}<span className="text-xs text-slate-600 ml-1">cm</span></p>
+                        <p className="text-xl font-bold mt-1">{status ? status.warning.toFixed(1) : '--'}<span className="text-xs text-slate-600 ml-1">cm</span></p>
                     </div>
                     <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-700/30">
                         <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Alarm</span>
-                        <p className="text-xl font-bold mt-1">{status ? status.alarm : '--'}<span className="text-xs text-slate-600 ml-1">cm</span></p>
+                        <p className="text-xl font-bold mt-1">{status ? status.alarm.toFixed(1) : '--'}<span className="text-xs text-slate-600 ml-1">cm</span></p>
                     </div>
                 </div>
             </motion.div>
 
-            {/* Weather Info (Placeholder for data if available) */}
+            {/* Weather Info */}
             <AnimatePresence>
                 {status?.rainExpected && (
                     <motion.div
@@ -203,7 +207,7 @@ const App = () => {
                         }}
                         onMouseUp={() => handleSimChange(true, simDistance)}
                         onTouchEnd={() => handleSimChange(true, simDistance)}
-                        className="w-100 accent-purple-500 h-2 bg-slate-900/50 rounded-lg appearance-none cursor-pointer"
+                        className="w-full accent-purple-500 h-2 bg-slate-900/50 rounded-lg appearance-none cursor-pointer"
                     />
                 </div>
             </div>
@@ -223,7 +227,7 @@ const App = () => {
                         placeholder="Type message..."
                         value={notifyMsg}
                         onChange={(e) => setNotifyMsg(e.target.value)}
-                        className="flex-1 bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500/50 transition-colors"
+                        className="flex-1 bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500/50 transition-colors text-white"
                     />
                     <button
                         onClick={sendNotify}
@@ -233,52 +237,6 @@ const App = () => {
                     </button>
                 </div>
             </div>
-
-            {/* Config Overlay */}
-            <AnimatePresence>
-                {showConfig && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl flex items-center justify-center p-8"
-                    >
-                        <div className="w-full max-w-sm flex flex-col gap-8">
-                            <div className="text-center">
-                                <div className="w-20 h-20 bg-sky-500/10 rounded-3xl border border-sky-500/20 flex items-center justify-center mx-auto mb-6">
-                                    <Waves className="w-10 h-10 text-sky-400" />
-                                </div>
-                                <h2 className="text-3xl font-black mb-2 tracking-tight">Welcome</h2>
-                                <p className="text-slate-400 text-sm">Enter your ESP8266 local IP or public tunnel URL to get started.</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    placeholder="e.g. 192.168.1.50"
-                                    value={ipInput}
-                                    onChange={(e) => setIpInput(e.target.value)}
-                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-sky-500 transition-colors"
-                                />
-                                <button
-                                    onClick={saveConfig}
-                                    className="w-full bg-sky-500 hover:bg-sky-400 text-[#0f172a] py-4 rounded-2xl font-black text-lg transition-all active:scale-95 shadow-lg shadow-sky-500/20"
-                                >
-                                    Connect Systems
-                                </button>
-                                {baseUrl && (
-                                    <button
-                                        onClick={() => setShowConfig(false)}
-                                        className="w-full py-4 text-slate-500 font-bold"
-                                    >
-                                        Cancel
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };
