@@ -68,14 +68,6 @@ const App = () => {
                 }
             }
 
-            // Check for status changes to trigger notifications
-            if (current && current.status !== 'NORMAL' && current.status !== lastNotifiedState[selectedStation]) {
-                sendNotification(`Flood Alert: ${selectedStation} is ${current.status}`, `Current distance: ${current.distance.toFixed(1)}cm`);
-                setLastNotifiedState(prev => ({ ...prev, [selectedStation]: current.status }));
-            } else if (current && current.status === 'NORMAL') {
-                setLastNotifiedState(prev => ({ ...prev, [selectedStation]: 'NORMAL' }));
-            }
-
             // Global offline check (based on Antwerpen - our real ESP)
             if (data["Antwerpen"]?.lastSeen) {
                 const lastSeen = new Date(data["Antwerpen"].lastSeen);
@@ -95,7 +87,40 @@ const App = () => {
         fetchStatus();
         const interval = setInterval(fetchStatus, 10000);
         return () => clearInterval(interval);
-    }, [selectedStation]);
+    }, []); // Only on mount
+
+    // Dedicated effect for global station notifications
+    useEffect(() => {
+        const stations = Object.keys(allStations);
+        if (stations.length === 0) return;
+
+        setLastNotifiedState(prev => {
+            const newState = { ...prev };
+            let hasChanges = false;
+
+            stations.forEach(name => {
+                const station = allStations[name];
+                const lastStatus = prev[name] || 'NORMAL';
+
+                // Only notify if status changed AND it's not NORMAL
+                if (station.status !== 'NORMAL' && station.status !== lastStatus) {
+                    sendNotification(
+                        `Flood Alert: ${name} is ${station.status}`,
+                        `Current distance: ${station.distance.toFixed(1)}cm`
+                    );
+                    newState[name] = station.status;
+                    hasChanges = true;
+                }
+                // Reset tracker if it went back to NORMAL
+                else if (station.status === 'NORMAL' && lastStatus !== 'NORMAL') {
+                    newState[name] = 'NORMAL';
+                    hasChanges = true;
+                }
+            });
+
+            return hasChanges ? newState : prev;
+        });
+    }, [allStations]);
 
     const handleSaveSettings = async () => {
         try {
