@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@netlify/blobs": "^4.2.0",
+    "clsx": "^2.1.0",
+    "formdata-node": "^6.0.3",
+    "framer-motion": "^11.0.8",
+    "lucide-react": "^0.344.0",
+    "node-fetch": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.344.0",
-    "framer-motion": "^11.0.8",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.1",
-    "node-fetch": "^3.3.2",
-    "formdata-node": "^6.0.3",
-    "@netlify/blobs": "^4.0.0"
+    "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.56",

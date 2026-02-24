@@ -1,21 +1,22 @@
 import { getStore } from "@netlify/blobs";
 
-export const handler = async (event) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+export default async (req, context) => {
+    if (req.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405 });
     }
 
-    // Security check: Match a secret key in environment variables or query param
-    const authHeader = event.headers['authorization'] || event.queryStringParameters?.key;
+    // Security check
+    const url = new URL(req.url);
+    const authHeader = req.headers.get('authorization') || url.searchParams.get('key');
     const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
 
     if (authHeader !== SECRET_KEY) {
-        return { statusCode: 401, body: 'Unauthorized' };
+        return new Response('Unauthorized', { status: 401 });
     }
 
     try {
-        const body = JSON.parse(event.body);
-        const { distance, warning, alarm, status, forecast, rainExpected } = body;
+        const body = await req.json();
+        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen" } = body;
 
         const sensorData = {
             distance,
@@ -27,19 +28,26 @@ export const handler = async (event) => {
             lastSeen: new Date().toISOString()
         };
 
-        // Save to Netlify Blobs (the "Cloud Store")
         const store = getStore("flood_data");
-        await store.setJSON("latest_status", sensorData);
 
-        return {
-            statusCode: 200,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ success: true, received: sensorData })
-        };
+        // Get existing stations data or start fresh
+        let stations = await store.get("stations_data", { type: "json" }) || {};
+
+        // Update the specific station
+        stations[station] = sensorData;
+
+        // Also keep "latest_status" compatible for now
+        await store.setJSON("latest_status", sensorData);
+        await store.setJSON("stations_data", stations);
+
+        return new Response(JSON.stringify({ success: true, updated: station, data: sensorData }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+        });
     } catch (error) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ error: 'Invalid data format', details: error.message })
-        };
+        return new Response(JSON.stringify({ error: 'Update failed', details: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 };

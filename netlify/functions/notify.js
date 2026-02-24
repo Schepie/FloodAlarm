@@ -1,52 +1,48 @@
-import fetch from 'node-fetch';
-import { FormData } from 'formdata-node';
+import { getStore } from "@netlify/blobs";
 
-export const handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+export default async (req, context) => {
+    if (req.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405 });
     }
 
-    const targetUrl = process.env.ESP8266_URL || event.queryStringParameters?.url;
-
-    let message;
+    let message, station;
     try {
-        const body = JSON.parse(event.body);
+        const body = await req.json();
         message = body.message;
+        station = body.station || "Antwerpen";
     } catch (e) {
-        return { statusCode: 400, body: 'Invalid JSON body' };
+        return new Response('Invalid JSON body', { status: 400 });
     }
 
-    if (!targetUrl || !message) {
-        return {
-            statusCode: 400,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ error: 'Missing parameters' })
-        };
+    if (!message) {
+        return new Response(JSON.stringify({ error: 'Missing message' }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 
     try {
-        const form = new FormData();
-        form.append('message', message);
-
-        const response = await fetch(`${targetUrl}/api/notify`, {
-            method: 'POST',
-            body: form
+        const store = getStore("flood_data");
+        // Store as a pending notification for the specific station
+        await store.setJSON(`pending_notify_${station}`, {
+            message,
+            timestamp: new Date().toISOString()
         });
 
-        if (response.ok) {
-            return {
-                statusCode: 200,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ success: true })
-            };
-        } else {
-            throw new Error(`ESP8266 responded with ${response.status}`);
-        }
+        return new Response(JSON.stringify({
+            success: true,
+            message: "Notification queued in cloud"
+        }), {
+            status: 200,
+            headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
     } catch (error) {
-        return {
-            statusCode: 502,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ error: 'Failed to notify ESP8266', details: error.message })
-        };
+        return new Response(JSON.stringify({ error: 'Failed to store notification', details: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 };
