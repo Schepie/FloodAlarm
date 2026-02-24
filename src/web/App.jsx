@@ -49,12 +49,39 @@ const App = () => {
         return () => clearInterval(interval);
     }, []);
 
+    const handleSimPush = async (distance) => {
+        try {
+            const res = await fetch(`/.netlify/functions/push-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'change_me_later' // Default key
+                },
+                body: JSON.stringify({
+                    distance: distance,
+                    warning: 30.0,
+                    alarm: 15.0,
+                    status: distance <= 15.0 ? 'ALARM' : (distance <= 30.0 ? 'WARNING' : 'NORMAL'),
+                    forecast: "Simulation Mode",
+                    rainExpected: false
+                })
+            });
+            if (!res.ok) throw new Error('Push failed');
+            console.log("Simulated push success:", distance);
+            // Immediately fetch to show update
+            fetchStatus();
+        } catch (e) {
+            console.error("Simulation push failed", e);
+        }
+    };
+
     const handleSimChange = async (active, distance) => {
         setIsSimActive(active);
         setSimDistance(distance);
 
-        // In "Push" mode, simulation would normally be handled by the ESP8266 
-        // receiving a command. For now, we'll keep the UI state for simulation.
+        if (active) {
+            handleSimPush(distance);
+        }
     };
 
     const sendNotify = async () => {

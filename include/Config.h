@@ -49,4 +49,4 @@
 
 // ─── Netlify Cloud Push ────────────────────────────────────────────────────
 #define CLOUD_NETLIFY_URL "https://floodalarm.netlify.app/.netlify/functions/push-status"
-#define CLOUD_API_KEY     "change_me_later"
+#define CLOUD_API_KEY     "nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d"
