@@ -26,8 +26,7 @@ namespace CloudSync {
         
         HTTPClient http;
         
-        Serial.println("[Cloud] Pushing to Netlify...");
-
+        Serial.printf("[Cloud] Pushing status for station: %s\n", station.c_str());
         // Send API key as query parameter for authentication
         String fullUrl = String(CLOUD_NETLIFY_URL) + "?key=" + String(CLOUD_API_KEY);
 

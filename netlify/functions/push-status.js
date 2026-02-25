@@ -46,7 +46,11 @@ export default async (req, context) => {
 
     try {
         const body = await req.json();
-        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate } = body;
+        console.log("[Cloud] Inbound Request:", JSON.stringify(body));
+        let { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate } = body;
+        station = station.trim();
+
+        console.log(`[Cloud] Normalized Station: "${station}" (isUiUpdate: ${!!isUiUpdate})`);
 
         const store = getStore("flood_data");
 

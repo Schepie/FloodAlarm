@@ -406,8 +406,7 @@ const App = () => {
                     isUiUpdate: true
                 })
             });
-            console.log(`[Cloud] Save Payload:`, {
-                station: selectedStation,
+            console.log(`[Cloud] Save Payload for station "${selectedStation}":`, {
                 warning: parseFloat(localWarning),
                 alarm: parseFloat(localAlarm),
                 isUiUpdate: true
