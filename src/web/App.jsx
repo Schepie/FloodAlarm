@@ -50,9 +50,9 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const dataMax = Math.max(...filteredData.map(d => d.val), warning || 0, alarm || 0);
     const maxVal = Math.max(100, Math.ceil((dataMax + 10) / 50) * 50);
-    const height = 100;
-    const width = 270;
-    const leftPad = 30;
+    const height = 120;
+    const width = 600;
+    const leftPad = 40;
 
     const timeframeMs = {
         '1h': 1 * 60 * 60 * 1000,
@@ -78,11 +78,12 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
     const warningY = (warning / maxVal) * height;
     const alarmY = (alarm / maxVal) * height;
 
-    const formatTime = (ts) => {
+    const formatTime = (ts, prevTs = null) => {
         const d = new Date(ts);
-        const isToday = new Date().toDateString() === d.toDateString();
+        const prevD = prevTs ? new Date(prevTs) : null;
+        const showDate = !prevD || d.toDateString() !== prevD.toDateString();
         const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-        return isToday ? timeStr : `${d.getDate()}/${d.getMonth() + 1} ${timeStr}`;
+        return showDate ? `${d.getDate()}/${d.getMonth() + 1} ${timeStr}` : timeStr;
     };
 
     const xLabels = [];
@@ -91,43 +92,47 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         const windowEnd = now.getTime();
         const durationMin = timeframeMs / 1000 / 60;
 
-        // Determine label frequency based on the timeframe window
         let intervalMin = 60;
-        if (durationMin <= 10) intervalMin = 1;
-        else if (durationMin <= 60) intervalMin = 10;
+        if (durationMin <= 60) intervalMin = 15;
         else if (durationMin <= 240) intervalMin = 60;
-        else if (durationMin <= 600) intervalMin = 120; // 2h
-        else intervalMin = 240; // 4h
+        else if (durationMin <= 480) intervalMin = 120;
+        else intervalMin = 240;
 
-        // Add start label (left edge of window)
-        xLabels.push({ x: leftPad, label: formatTime(windowStart) });
+        // Start Label
+        xLabels.push({ x: leftPad, label: formatTime(windowStart), ts: windowStart });
 
-        // Add intermediate marks
         const startD = new Date(windowStart);
         const nextMark = new Date(startD);
-        if (intervalMin >= 60) {
-            nextMark.setHours(nextMark.getHours() + 1, 0, 0, 0);
-        } else {
-            nextMark.setMinutes(Math.ceil((nextMark.getMinutes() + 1) / intervalMin) * intervalMin, 0, 0);
-        }
+        nextMark.setMinutes(Math.ceil((nextMark.getMinutes() + 1) / intervalMin) * intervalMin, 0, 0);
 
         let currentMark = nextMark.getTime();
         let safety = 0;
-        while (currentMark < windowEnd - (intervalMin * 60 * 1000 * 0.7) && safety < 50) {
+        let lastX = leftPad;
+
+        while (currentMark < windowEnd - (intervalMin * 60 * 1000 * 0.5) && safety < 50) {
             const ratio = (currentMark - windowStart) / timeframeMs;
-            xLabels.push({
-                x: leftPad + ratio * width,
-                label: formatTime(currentMark)
-            });
+            const x = leftPad + ratio * width;
+
+            // Only add if at least 60px from previous label to prevent overlap
+            if (x - lastX > 60) {
+                xLabels.push({
+                    x,
+                    label: formatTime(currentMark, xLabels[xLabels.length - 1]?.ts),
+                    ts: currentMark
+                });
+                lastX = x;
+            }
             currentMark += intervalMin * 60 * 1000;
             safety++;
         }
 
-        // Add end label (now)
-        xLabels.push({ x: leftPad + width, label: formatTime(windowEnd) });
+        // End Label (if not too close to the last one)
+        const endX = leftPad + width;
+        if (endX - lastX > 40) {
+            xLabels.push({ x: endX, label: formatTime(windowEnd, xLabels[xLabels.length - 1]?.ts), ts: windowEnd });
+        }
     }
 
-    // Generate dynamic Y-axis ticks
     const yTicks = [];
     const tickStep = maxVal <= 100 ? 25 : 50;
     for (let i = 0; i <= maxVal; i += tickStep) {
@@ -135,7 +140,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
     }
 
     return (
-        <svg viewBox={`0 0 ${leftPad + width} ${height + 25}`} className="w-full h-full" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${leftPad + width + 20} ${height + 30}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
             <defs>
                 <linearGradient id="graphGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.4" />
@@ -247,6 +252,7 @@ const App = () => {
     const [timeframe, setTimeframe] = useState('24h');
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isWeatherCompact, setIsWeatherCompact] = useState(false);
+    const [isSimCompact, setIsSimCompact] = useState(true);
 
     const t = (key) => translations[language][key] || key;
 
@@ -557,6 +563,99 @@ const App = () => {
             <div className="flex-1 overflow-y-auto px-5 pb-24 scrollbar-hide">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-10">
                     <div className="lg:col-span-2 space-y-6">
+                        {/* Weather & Forecast */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`glass-card rounded-3xl z-10 transition-all duration-300 ${isWeatherCompact ? 'p-4' : 'p-6'}`}
+                        >
+                            <button
+                                onClick={() => setIsWeatherCompact(!isWeatherCompact)}
+                                className="flex items-center justify-between w-full group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
+                                        <CloudSun className={`w-4 h-4 text-amber-400 ${isWeatherCompact ? '' : 'animate-pulse'}`} />
+                                    </div>
+                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-amber-500">{t('weather')}</span>
+
+                                    {isWeatherCompact && (
+                                        <div className="flex items-center gap-4 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
+                                            <div className="flex items-center gap-1.5">
+                                                <Thermometer className="w-3.5 h-3.5 text-orange-400" />
+                                                <span className="text-xs font-black text-slate-200">{status?.weather?.temp || '--'}°</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <CloudRain className="w-3.5 h-3.5 text-sky-400" />
+                                                <span className="text-xs font-black text-slate-200">{status?.weather?.rainProb || '--'}%</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {!isWeatherCompact && (
+                                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 rounded-full border border-slate-700/50">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                {selectedStation || t('belgium')}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {isWeatherCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                                </div>
+                            </button>
+
+                            <AnimatePresence>
+                                {!isWeatherCompact && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                        animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="grid grid-cols-2 gap-6 mb-8">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-slate-900/40 rounded-2xl border border-slate-800">
+                                                    <Thermometer className="w-5 h-5 text-orange-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{t('temp')}</p>
+                                                    <p className="text-xl font-black">{status?.weather?.temp || '--'}°<span className="text-xs text-slate-500 ml-1">C</span></p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-slate-900/40 rounded-2xl border border-slate-800">
+                                                    <CloudRain className="w-5 h-5 text-sky-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{t('rain')}</p>
+                                                    <p className="text-xl font-black">{status?.weather?.rainProb || '--'}%</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">{t('three_day_outlook')}</p>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {status?.weather?.daily.map((day, i) => (
+                                                    <div key={i} className="bg-slate-900/30 p-3 rounded-2xl border border-slate-800/50 flex flex-col items-center gap-2">
+                                                        <span className="text-[10px] font-black text-slate-500">{day.day}</span>
+                                                        {day.icon === 'cloud-rain' ? <CloudRain className="w-5 h-5 text-sky-400" /> :
+                                                            day.icon === 'cloud-sun' ? <CloudSun className="w-5 h-5 text-amber-400" /> :
+                                                                <Cloud className="w-5 h-5 text-slate-400" />}
+                                                        <span className="text-xs font-bold">{day.temp}°</span>
+                                                        {day.rain > 50 && (
+                                                            <span className="text-[8px] font-black text-sky-500 uppercase px-1.5 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/20">{t('heavy_rain')}</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
+
                         {/* Station List */}
                         <div className="glass-card rounded-3xl p-6 z-10 transition-all">
                             <button
@@ -759,142 +858,100 @@ const App = () => {
                     </div>
 
                     <div className="space-y-6">
-                        {/* Simulation */}
-                        <div className="glass-card rounded-3xl p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-purple-500/10 rounded-lg">
-                                        <Activity className="w-4 h-4 text-purple-400" />
-                                    </div>
-                                    <span className="text-sm font-bold uppercase tracking-wider text-slate-300">
-                                        {selectedStation === "Antwerpen" ? t('real_esp_control') : `${selectedStation} ${t('sim_control')}`}
-                                    </span>
-                                </div>
-                                <div
-                                    onClick={() => handleSimChange(!isSimActive, simDistance)}
-                                    className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                >
-                                    <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-
-                            <div className={`space-y-4 transition-opacity duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase">
-                                    <span>{t('virtual_distance')}</span>
-                                    <span className="text-purple-400">{simDistance}cm</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="2"
-                                    max="400"
-                                    value={simDistance}
-                                    onChange={(e) => {
-                                        setSimDistance(parseInt(e.target.value));
-                                    }}
-                                    onMouseUp={() => handleSimPush(selectedStation, simDistance)}
-                                    onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
-                                    className="w-full accent-purple-500 h-2 bg-slate-900/50 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <p className="text-[10px] text-slate-500 leading-tight">
-                                    {selectedStation === "Antwerpen"
-                                        ? t('sim_warning')
-                                        : t('sim_upstream')}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Weather & Forecast */}
+                        {/* Simulator */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className={`glass-card rounded-3xl z-10 transition-all duration-300 ${isWeatherCompact ? 'p-4' : 'p-6'}`}
+                            className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
                         >
                             <button
-                                onClick={() => setIsWeatherCompact(!isWeatherCompact)}
+                                onClick={() => setIsSimCompact(!isSimCompact)}
                                 className="flex items-center justify-between w-full group"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
-                                        <CloudSun className={`w-4 h-4 text-amber-400 ${isWeatherCompact ? '' : 'animate-pulse'}`} />
+                                    <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
+                                        <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
                                     </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-amber-500">{t('weather')}</span>
+                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">SIMULATOR</span>
 
-                                    {isWeatherCompact && (
-                                        <div className="flex items-center gap-4 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
-                                            <div className="flex items-center gap-1.5">
-                                                <Thermometer className="w-3.5 h-3.5 text-orange-400" />
-                                                <span className="text-xs font-black text-slate-200">{status?.weather?.temp || '--'}°</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <CloudRain className="w-3.5 h-3.5 text-sky-400" />
-                                                <span className="text-xs font-black text-slate-200">{status?.weather?.rainProb || '--'}%</span>
-                                            </div>
+                                    {isSimCompact && isSimActive && (
+                                        <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
+                                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                {simDistance}cm
+                                            </span>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    {!isWeatherCompact && (
-                                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 rounded-full border border-slate-700/50">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                {selectedStation || t('belgium')}
-                                            </span>
+                                    {!isSimCompact && (
+                                        <div
+                                            onClick={(e) => { e.stopPropagation(); handleSimChange(!isSimActive, simDistance); }}
+                                            className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
+                                        >
+                                            <div className={`bg-white w-3 h-3 rounded-full transition-transform ${isSimActive ? 'translate-x-5' : 'translate-x-0'}`} />
                                         </div>
                                     )}
-                                    {isWeatherCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                                    {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
                                 </div>
                             </button>
 
                             <AnimatePresence>
-                                {!isWeatherCompact && (
+                                {!isSimCompact && (
                                     <motion.div
                                         initial={{ height: 0, opacity: 0, marginTop: 0 }}
                                         animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
                                         exit={{ height: 0, opacity: 0, marginTop: 0 }}
                                         className="overflow-hidden"
                                     >
-                                        <div className="grid grid-cols-2 gap-6 mb-8">
-                                            <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-slate-900/40 rounded-2xl border border-slate-800">
-                                                    <Thermometer className="w-5 h-5 text-orange-400" />
+                                        <div className={`space-y-6 transition-opacity duration-300`}>
+                                            <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
+                                                    <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                        {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{t('temp')}</p>
-                                                    <p className="text-xl font-black">{status?.weather?.temp || '--'}°<span className="text-xs text-slate-500 ml-1">C</span></p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-slate-900/40 rounded-2xl border border-slate-800">
-                                                    <CloudRain className="w-5 h-5 text-sky-400" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase">{t('rain')}</p>
-                                                    <p className="text-xl font-black">{status?.weather?.rainProb || '--'}%</p>
+                                                <div
+                                                    onClick={() => handleSimChange(!isSimActive, simDistance)}
+                                                    className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
+                                                >
+                                                    <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="space-y-3">
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">{t('three_day_outlook')}</p>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {status?.weather?.daily.map((day, i) => (
-                                                    <div key={i} className="bg-slate-900/30 p-3 rounded-2xl border border-slate-800/50 flex flex-col items-center gap-2">
-                                                        <span className="text-[10px] font-black text-slate-500">{day.day}</span>
-                                                        {day.icon === 'cloud-rain' ? <CloudRain className="w-5 h-5 text-sky-400" /> :
-                                                            day.icon === 'cloud-sun' ? <CloudSun className="w-5 h-5 text-amber-400" /> :
-                                                                <Cloud className="w-5 h-5 text-slate-400" />}
-                                                        <span className="text-xs font-bold">{day.temp}°</span>
-                                                        {day.rain > 50 && (
-                                                            <span className="text-[8px] font-black text-sky-500 uppercase px-1.5 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/20">{t('heavy_rain')}</span>
-                                                        )}
+                                            <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                    <span>{t('virtual_distance')}</span>
+                                                    <span className="text-xl font-black text-purple-400 monospace">{simDistance}<span className="text-[10px] ml-0.5">cm</span></span>
+                                                </div>
+                                                <div className="px-2">
+                                                    <input
+                                                        type="range"
+                                                        min="2"
+                                                        max="400"
+                                                        value={simDistance}
+                                                        onChange={(e) => setSimDistance(parseInt(e.target.value))}
+                                                        onMouseUp={() => handleSimPush(selectedStation, simDistance)}
+                                                        onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
+                                                        className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
+                                                    />
+                                                </div>
+
+                                                <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
+                                                    <div className="flex items-start gap-3">
+                                                        <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
+                                                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
+                                                            {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
+                                                        </p>
                                                     </div>
-                                                ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </motion.div>
+
                     </div>
                 </div>
             </div>
