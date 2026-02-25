@@ -48,7 +48,8 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         );
     }
 
-    const maxVal = 100; // Reference max distance
+    const dataMax = Math.max(...filteredData.map(d => d.val), warning || 0, alarm || 0);
+    const maxVal = Math.max(100, Math.ceil((dataMax + 10) / 50) * 50); // Dynamic max, min 100, steps of 50
     const height = 100;
     const width = 270; // Reduced to fit labels on the left
     const leftPad = 30;
@@ -116,6 +117,13 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         }
     }
 
+    // Generate dynamic Y-axis ticks
+    const yTicks = [];
+    const tickStep = maxVal <= 100 ? 25 : 50;
+    for (let i = 0; i <= maxVal; i += tickStep) {
+        yTicks.push(i);
+    }
+
     return (
         <svg viewBox={`0 0 ${leftPad + width} ${height + 25}`} className="w-full h-full" preserveAspectRatio="none">
             <defs>
@@ -126,7 +134,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
             </defs>
 
             {/* Y-Axis Labels & Grid */}
-            {[0, 25, 50, 75, 100].map(val => {
+            {yTicks.map(val => {
                 const y = (val / maxVal) * height;
                 return (
                     <g key={val}>
