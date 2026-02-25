@@ -16,7 +16,7 @@ export default async (req, context) => {
 
     try {
         const body = await req.json();
-        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen" } = body;
+        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde" } = body;
 
         const sensorData = {
             distance,
@@ -25,8 +25,10 @@ export default async (req, context) => {
             status,
             forecast,
             rainExpected,
+            river,
             lastSeen: new Date().toISOString()
         };
+
 
         const store = getStore("flood_data");
 

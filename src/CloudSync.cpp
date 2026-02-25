@@ -4,13 +4,21 @@
 #include <ArduinoJson.h>
 #include "CloudSync.h"
 #include "Config.h"
+#include <Preferences.h>
 
 namespace CloudSync {
-    
+    static Preferences prefs;
+
     bool pushData(float distance, float warnThr, float alarmThr, 
                   const String& status, bool rainExpected, const String& forecast) {
         
         if (WiFi.status() != WL_CONNECTED) return false;
+
+        // Load metadata
+        prefs.begin("wifi", true); // read-only
+        String station = prefs.getString("station", "Antwerpen");
+        String river = prefs.getString("river", "Schelde");
+        prefs.end();
 
         WiFiClientSecure client;
         client.setInsecure(); // Netlify certs are dynamic, for IoT insecure is often easier but less secure.
@@ -30,7 +38,10 @@ namespace CloudSync {
             doc["status"] = status;
             doc["rainExpected"] = rainExpected;
             doc["forecast"] = forecast;
+            doc["station"] = station;
+            doc["river"] = river;
             doc["key"] = CLOUD_API_KEY; // Using query param/header style for auth
+
 
             String payload;
             serializeJson(doc, payload);

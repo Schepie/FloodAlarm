@@ -74,11 +74,11 @@ void setup() {
     SensorMgr::begin();
     StorageMgr::begin();
 
-    // WiFi: check hardcoded creds first, then stored creds, else start provisioning portal
+    // WiFi: honor WIFI_FORCE_CONFIG Choice
     bool connected = false;
 
-    if (strlen(WIFI_SSID) > 0) {
-        Serial.printf("[Main] Using hardcoded WiFi: %s\n", WIFI_SSID);
+    if (WIFI_FORCE_CONFIG && strlen(WIFI_SSID) > 0) {
+        Serial.printf("[Main] WIFI_FORCE_CONFIG is ON. Using hardcoded WiFi: %s\n", WIFI_SSID);
         WiFi.mode(WIFI_STA);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         unsigned long start = millis();
@@ -88,6 +88,7 @@ void setup() {
         Serial.println();
         connected = (WiFi.status() == WL_CONNECTED);
     }
+
 
     if (!connected && !WiFiProv::connectFromStored()) {
         if (WIFI_FORCE_CONFIG) {

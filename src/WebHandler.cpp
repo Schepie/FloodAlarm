@@ -4,8 +4,11 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include "NotificationManager.h"
+#include <Preferences.h>
+#include "Config.h"
 
 extern void setSimulation(bool active, float distance);
+
 extern float currentDistance;
 extern float warningThreshold;
 extern float alarmThreshold;
@@ -67,6 +70,15 @@ void WebHandler::begin(AsyncWebServer& server, AsyncWebSocket& ws) {
         doc["forecast"]     = WeatherSvc::getForecastDescription();
         doc["entries"]      = StorageMgr::getEntryCount();
 
+        // Metadata
+        Preferences prefs;
+        prefs.begin("wifi", true);
+        doc["station"]  = prefs.getString("station", "Antwerpen");
+        doc["river"]    = prefs.getString("river", "Schelde");
+        prefs.end();
+        doc["interval"] = SENSOR_READ_INTERVAL_MS / 1000; // in seconds
+
+
         if (currentDistance <= 0) {
             doc["status"] = "UNKNOWN";
         } else if (currentDistance <= alarmThreshold) {
@@ -126,6 +138,15 @@ void WebHandler::broadcastLevel(AsyncWebSocket& ws, float distanceCm,
     doc["alarm"]        = round(alarmThr * 10.0f) / 10.0f;
     doc["rainExpected"] = rainExpected;
     doc["forecast"]     = forecast;
+
+    // Metadata
+    Preferences prefs;
+    prefs.begin("wifi", true);
+    doc["station"] = prefs.getString("station", "Antwerpen");
+    doc["river"]   = prefs.getString("river", "Schelde");
+    prefs.end();
+    doc["interval"] = SENSOR_READ_INTERVAL_MS / 1000;
+
 
     // Determine status
     if (distanceCm <= alarmThr) {

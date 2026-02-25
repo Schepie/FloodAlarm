@@ -293,9 +293,11 @@
 <body>
 
   <header>
-    <h1>&#x1F30A; Flood Monitor</h1>
+    <h1>&#x1F30A; <span id="headerStation">Flood Monitor</span></h1>
+    <p id="headerRiver" style="margin-top: -0.2rem; font-weight: 600; color: var(--accent); opacity: 0.8;"></p>
     <p><span class="conn-dot" id="connDot"></span><span id="connText">Connecting…</span></p>
   </header>
+
 
   <div class="grid">
 
@@ -317,9 +319,11 @@
     <!-- Status + Weather -->
     <div class="card">
       <h2>Status</h2>
-      <div style="margin-bottom:1rem">
+      <div style="margin-bottom:1rem; display: flex; justify-content: space-between; align-items: center;">
         <span class="badge badge-normal" id="statusBadge">NORMAL</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Interval: <span id="intervalVal">--</span>s</span>
       </div>
+
       <h2>Weather Forecast</h2>
       <div class="weather-status">
         <span class="weather-icon" id="weatherIcon">&#x2600;&#xFE0F;</span>
@@ -454,6 +458,12 @@
         mod.textContent = 'Thresholds: default';
         mod.classList.remove('rain-active');
       }
+
+      // Additional Metadata
+      if (d.station) document.getElementById('headerStation').textContent = d.station;
+      if (d.river) document.getElementById('headerRiver').textContent = d.river;
+      if (d.interval) document.getElementById('intervalVal').textContent = d.interval;
+
 
       // Update timestamp
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
