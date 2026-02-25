@@ -50,21 +50,38 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const maxVal = 100; // Reference max distance
     const height = 100;
-    const width = 300;
+    const width = 270; // Reduced to fit labels on the left
+    const leftPad = 30;
 
     const points = filteredData.map((d, i) => {
-        const x = (i / (filteredData.length - 1)) * width;
-        const y = height - (Math.min(d.val, maxVal) / maxVal) * height;
+        const x = leftPad + (i / (filteredData.length - 1)) * width;
+        // Invert: lower distance (more water) = lower Y (higher on graph)
+        const y = (Math.min(d.val, maxVal) / maxVal) * height;
         return `${x},${y}`;
     }).join(' ');
 
-    const areaPath = `M 0,${height} ${points.split(' ').map((p, i) => (i === 0 ? `L ${p}` : p)).join(' ')} L ${width},${height} Z`;
+    const areaPath = `M ${leftPad},${height} ${points.split(' ').map((p, i) => (i === 0 ? `L ${p}` : p)).join(' ')} L ${leftPad + width},${height} Z`;
 
-    const warningY = height - (warning / maxVal) * height;
-    const alarmY = height - (alarm / maxVal) * height;
+    const warningY = (warning / maxVal) * height;
+    const alarmY = (alarm / maxVal) * height;
+
+    const formatTime = (ts) => {
+        const d = new Date(ts);
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    const xLabels = [];
+    if (filteredData.length >= 2) {
+        xLabels.push({ x: leftPad, label: formatTime(filteredData[0].ts) });
+        xLabels.push({ x: leftPad + width, label: formatTime(filteredData[filteredData.length - 1].ts) });
+        if (filteredData.length > 5) {
+            const midIdx = Math.floor(filteredData.length / 2);
+            xLabels.push({ x: leftPad + (midIdx / (filteredData.length - 1)) * width, label: formatTime(filteredData[midIdx].ts) });
+        }
+    }
 
     return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${leftPad + width} ${height + 25}`} className="w-full h-full" preserveAspectRatio="none">
             <defs>
                 <linearGradient id="graphGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.4" />
@@ -72,9 +89,49 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
                 </linearGradient>
             </defs>
 
+            {/* Y-Axis Labels & Grid */}
+            {[0, 25, 50, 75, 100].map(val => {
+                const y = (val / maxVal) * height;
+                return (
+                    <g key={val}>
+                        <text
+                            x={leftPad - 8}
+                            y={y < 10 ? y + 5 : (y > 90 ? y - 5 : y)}
+                            textAnchor="end"
+                            dominantBaseline="middle"
+                            className="fill-slate-500 text-[10px] font-bold monospace"
+                        >
+                            {val}
+                        </text>
+                        <line
+                            x1={leftPad}
+                            y1={y}
+                            x2={leftPad + width}
+                            y2={y}
+                            stroke="white"
+                            strokeOpacity="0.05"
+                            strokeWidth="1"
+                        />
+                    </g>
+                );
+            })}
+
+            {/* X-Axis Time Labels */}
+            {xLabels.map((xl, i) => (
+                <text
+                    key={i}
+                    x={xl.x}
+                    y={height + 18}
+                    textAnchor={xl.x < leftPad + 20 ? "start" : xl.x > leftPad + width - 20 ? "end" : "middle"}
+                    className="fill-slate-600 text-[9px] font-bold monospace"
+                >
+                    {xl.label}
+                </text>
+            ))}
+
             {/* Limit Lines */}
-            <line x1="0" y1={warningY} x2={width} y2={warningY} stroke="#f97316" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
-            <line x1="0" y1={alarmY} x2={width} y2={alarmY} stroke="#ef4444" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
+            <line x1={leftPad} y1={warningY} x2={leftPad + width} y2={warningY} stroke="#f97316" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
+            <line x1={leftPad} y1={alarmY} x2={leftPad + width} y2={alarmY} stroke="#ef4444" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
 
             {/* Area */}
             <motion.path
@@ -100,8 +157,8 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
             {/* Current Point */}
             <motion.circle
-                cx={width}
-                cy={height - (Math.min(filteredData[filteredData.length - 1].val, maxVal) / maxVal) * height}
+                cx={leftPad + width}
+                cy={(Math.min(filteredData[filteredData.length - 1].val, maxVal) / maxVal) * height}
                 r="3"
                 fill="#0ea5e9"
                 initial={{ scale: 0 }}
