@@ -19,6 +19,8 @@ import {
     Wind,
     Thermometer,
     Cloud,
+    Sun,
+    CloudLightning,
     ShieldAlert,
     ShieldCheck,
     AlertOctagon
@@ -974,8 +976,8 @@ const App = () => {
                                                                     handleSimPush(selectedStation, simDistance, w.id);
                                                                 }}
                                                                 className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
-                                                                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
-                                                                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
+                                                                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                                                                    : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
                                                                     }`}
                                                             >
                                                                 <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
