@@ -24,18 +24,20 @@ export default async (req, context) => {
         authHeader = authHeader.substring(7);
     }
 
-    if (!process.env.FLOOD_API_KEY) {
-        console.error("[Auth] CRITICAL: FLOOD_API_KEY is not set in Netlify environment variables!");
+    const SECRET_KEY = process.env.FLOOD_API_KEY;
+
+    if (!SECRET_KEY) {
+        console.error("[Auth] CRITICAL: FLOOD_API_KEY is not set in Netlify Environment Variables!");
+        return new Response('Server Configuration Error: FLOOD_API_KEY missing in Netlify settings', { status: 500, headers: corsHeaders });
     }
 
-    const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
+    // Trim whitespace to avoid common "copy-paste" errors
+    const normalizedAuth = authHeader.trim();
 
-
-    if (authHeader !== SECRET_KEY) {
-        console.warn(`[Auth] Unauthorized access attempt. Received: ${authHeader.substring(0, 4)}...`);
-        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+    if (normalizedAuth !== SECRET_KEY.trim()) {
+        console.warn(`[Auth] Unauthorized attempt. Expected: ${SECRET_KEY.substring(0, 4)}... Received: ${normalizedAuth.substring(0, 4)}...`);
+        return new Response('Unauthorized: API Key mismatch. Check your dashboard settings.', { status: 401, headers: corsHeaders });
     }
-
 
 
     try {
