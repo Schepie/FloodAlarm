@@ -24,7 +24,7 @@ export default async (req, context) => {
 
             // Ensure defaults if missing (for legacy data)
             if (!allStations[name].river) allStations[name].river = "Schelde";
-            if (allStations[name].isSimulated === undefined) allStations[name].isSimulated = (name !== "Antwerpen");
+            if (allStations[name].isSimulated === undefined) allStations[name].isSimulated = (name.toLowerCase() !== "antwerpen");
         }
 
 

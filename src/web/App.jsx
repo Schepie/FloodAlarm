@@ -305,7 +305,7 @@ const App = () => {
             const data = await res.json();
 
             setAllStations(data);
-            const current = data[selectedStation];
+            const current = data[selectedStation.toLowerCase().trim()] || data[selectedStation];
 
             if (current && !isSettingsOpen) {
                 setLocalWarning(current.warning);
@@ -316,8 +316,8 @@ const App = () => {
             }
 
             // Global offline check (based on Antwerpen - our real ESP)
-            if (data["Antwerpen"]) {
-                setIsOffline(checkIsOffline(data["Antwerpen"]));
+            if (data["antwerpen"] || data["Antwerpen"]) {
+                setIsOffline(checkIsOffline(data["antwerpen"] || data["Antwerpen"]));
             }
 
         } catch (e) {
@@ -430,7 +430,7 @@ const App = () => {
 
     useEffect(() => {
         if (selectedStation) {
-            const current = allStations[selectedStation];
+            const current = allStations[selectedStation.toLowerCase().trim()] || allStations[selectedStation];
             if (current && !isSettingsOpen) {
                 if (current.warning !== undefined) setLocalWarning(current.warning);
                 if (current.alarm !== undefined) setLocalAlarm(current.alarm);

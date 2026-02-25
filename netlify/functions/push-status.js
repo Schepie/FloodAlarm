@@ -48,15 +48,15 @@ export default async (req, context) => {
         const body = await req.json();
         console.log("[Cloud] Inbound Request:", JSON.stringify(body));
         let { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate } = body;
-        station = station.trim();
+        const stationKey = station.toLowerCase().trim();
 
-        console.log(`[Cloud] Normalized Station: "${station}" (isUiUpdate: ${!!isUiUpdate})`);
+        console.log(`[Cloud] Normalized Key: "${stationKey}" (isUiUpdate: ${!!isUiUpdate})`);
 
         const store = getStore("flood_data");
 
         // Get existing stations data or start fresh
         let stations = await store.get("stations_data", { type: "json" }) || {};
-        const existingData = stations[station] || {};
+        const existingData = stations[stationKey] || {};
 
         // Configuration (Thresholds and Intervals) is only updated if it's a UI push
         // OR if this is the first time we see this station (no data at all)
@@ -86,12 +86,12 @@ export default async (req, context) => {
         }
 
         // Update the specific station
-        stations[station] = sensorData;
+        stations[stationKey] = sensorData;
 
 
         // --- History Logic ---
         const historyStore = getStore("flood_history");
-        const historyKey = `history_${station}`;
+        const historyKey = `history_${stationKey}`;
         let history = await historyStore.get(historyKey, { type: "json" }) || [];
 
         // Add new entry
