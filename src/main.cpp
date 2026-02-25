@@ -28,7 +28,7 @@ bool  buzzerActive     = false;
 
 // ─── Simulation ─────────────────────────────────────────────────────────────
 bool  simulationActive = false;
-float simulatedDistance = 0.0f;
+float simulatedDistance = 100.0f; // Start at a valid mid-range value — 0 causes a push of -1
 
 void setSimulation(bool active, float distance) {
     simulationActive = active;
@@ -174,7 +174,7 @@ void loop() {
         lastSensorRead = now;
         
         if (simulationActive) {
-            currentDistance = simulatedDistance;
+            if (simulatedDistance > 0) currentDistance = simulatedDistance;
         } else {
             float dist = SensorMgr::readDistanceCm();
             if (dist > 0) {
