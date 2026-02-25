@@ -597,7 +597,7 @@ const App = () => {
     };
 
     const formatLastSeen = () => {
-        if (!(status ? status : undefined)) return t('never');
+        if (!(status ? status.lastSeen : undefined)) return t('never');
         const date = new Date(status.lastSeen);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
@@ -699,11 +699,11 @@ const App = () => {
                                         <div className="flex items-center gap-4 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
                                             <div className="flex items-center gap-1.5">
                                                 <Thermometer className="w-3.5 h-3.5 text-orange-400" />
-                                                <span className="text-xs font-black text-slate-200">{(status ? status : undefined) || '--'}°</span>
+                                                <span className="text-xs font-black text-slate-200">{(status && status.weather ? status.weather.temp : undefined) || '--'}°</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <CloudRain className="w-3.5 h-3.5 text-sky-400" />
-                                                <span className="text-xs font-black text-slate-200">{(status ? status : undefined) || '--'}%</span>
+                                                <span className="text-xs font-black text-slate-200">{(status && status.weather ? status.weather.rainProb : undefined) || '--'}%</span>
                                             </div>
                                             {(() => {
                                                 const iv = localIntervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
@@ -712,12 +712,12 @@ const App = () => {
                                                 if (isSimActive) {
                                                     tier = simWeather; // 'sunny' | 'moderate' | 'stormy' | 'waterbomb'
                                                 } else {
-                                                    const fc = ((status ? status : undefined) || '').toLowerCase();
-                                                    if ((status ? status : undefined) === 'ALARM' || fc.includes('waterbomb')) {
+                                                    const fc = ((status ? status.forecast : undefined) || '').toLowerCase();
+                                                    if ((status ? status.status : undefined) === 'ALARM' || fc.includes('waterbomb')) {
                                                         tier = 'waterbomb';
-                                                    } else if ((status ? status : undefined) === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
+                                                    } else if ((status ? status.status : undefined) === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
                                                         tier = 'stormy';
-                                                    } else if ((status ? status : undefined) || fc.includes('rain')) {
+                                                    } else if ((status ? status.rainExpected : undefined) || fc.includes('rain')) {
                                                         tier = 'moderate';
                                                     } else {
                                                         tier = 'sunny';
@@ -760,7 +760,7 @@ const App = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-[10px] font-bold text-slate-500 uppercase">{t('temp')}</p>
-                                                    <p className="text-xl font-black">{(status ? status : undefined) || '--'}°<span className="text-xs text-slate-500 ml-1">C</span></p>
+                                                    <p className="text-xl font-black">{(status && status.weather ? status.weather.temp : undefined) || '--'}°<span className="text-xs text-slate-500 ml-1">C</span></p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
@@ -769,7 +769,7 @@ const App = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-[10px] font-bold text-slate-500 uppercase">{t('rain')}</p>
-                                                    <p className="text-xl font-black">{(status ? status : undefined) || '--'}%</p>
+                                                    <p className="text-xl font-black">{(status && status.weather ? status.weather.rainProb : undefined) || '--'}%</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -777,7 +777,7 @@ const App = () => {
                                         <div className="space-y-3">
                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">{t('three_day_outlook')}</p>
                                             <div className="grid grid-cols-3 gap-3">
-                                                {(status ? status : undefined).map((day, i) => (
+                                                {(status && status.weather && status.weather.daily ? status.weather.daily : []).map((day, i) => (
                                                     <div key={i} className="bg-slate-900/30 p-3 rounded-2xl border border-slate-800/50 flex flex-col items-center gap-2">
                                                         <span className="text-[10px] font-black text-slate-500">{day.day}</span>
                                                         {day.icon === 'cloud-rain' ? <CloudRain className="w-5 h-5 text-sky-400" /> :
@@ -1077,7 +1077,7 @@ const App = () => {
                                                             <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
                                                                 <span>{t('virtual_distance')}</span>
                                                                 <span className="text-xl font-black text-purple-400 monospace">
-                                                                    {(selectedStation === "Antwerpen" ? ((status ? status : undefined) || 100) : simDistance)}
+                                                                    {(selectedStation === "Antwerpen" ? ((status ? status.distance : undefined) || 100) : simDistance)}
                                                                     <span className="text-[10px] ml-0.5">cm</span>
                                                                 </span>
                                                             </div>
@@ -1087,7 +1087,7 @@ const App = () => {
                                                                     min="2"
                                                                     max="400"
                                                                     disabled={selectedStation === "Antwerpen"}
-                                                                    value={selectedStation === "Antwerpen" ? ((status ? status : undefined) || 100) : simDistance}
+                                                                    value={selectedStation === "Antwerpen" ? ((status ? status.distance : undefined) || 100) : simDistance}
                                                                     onChange={(e) => {
                                                                         const val = parseInt(e.target.value);
                                                                         console.log(`[Slider] New value for ${selectedStation}: ${val}`);
