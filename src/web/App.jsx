@@ -72,11 +72,47 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const xLabels = [];
     if (filteredData.length >= 2) {
-        xLabels.push({ x: leftPad, label: formatTime(filteredData[0].ts) });
-        xLabels.push({ x: leftPad + width, label: formatTime(filteredData[filteredData.length - 1].ts) });
-        if (filteredData.length > 5) {
-            const midIdx = Math.floor(filteredData.length / 2);
-            xLabels.push({ x: leftPad + (midIdx / (filteredData.length - 1)) * width, label: formatTime(filteredData[midIdx].ts) });
+        const startTime = filteredData[0].ts;
+        const endTime = filteredData[filteredData.length - 1].ts;
+        const durationMin = (endTime - startTime) / 1000 / 60;
+
+        // Determine label frequency based on timeframe
+        let intervalMin = 60; // Default 1 hour
+        if (timeframe === '5m') intervalMin = 1;
+        else if (timeframe === '30m') intervalMin = 5;
+        else if (timeframe === '3h') intervalMin = 30;
+        else if (timeframe === '8h') intervalMin = 60;
+        else intervalMin = 240; // 24h -> every 4 hours
+
+        // Add start label
+        xLabels.push({ x: leftPad, label: formatTime(startTime) });
+
+        // Add intermediate labels based on interval
+        if (durationMin > intervalMin) {
+            const startD = new Date(startTime);
+            // Align to next interval
+            const nextMark = new Date(startD);
+            if (intervalMin >= 60) {
+                nextMark.setHours(nextMark.getHours() + 1, 0, 0, 0);
+            } else {
+                nextMark.setMinutes(Math.ceil(nextMark.getMinutes() / intervalMin) * intervalMin, 0, 0);
+            }
+
+            let currentMark = nextMark.getTime();
+            while (currentMark < endTime - (intervalMin * 60 * 1000 * 0.5)) { // Don't crowd the end
+                const ratio = (currentMark - startTime) / (endTime - startTime);
+                xLabels.push({
+                    x: leftPad + ratio * width,
+                    label: formatTime(currentMark)
+                });
+                currentMark += intervalMin * 60 * 1000;
+            }
+        }
+
+        // Add end label if not too close to last label
+        const lastLabelX = xLabels[xLabels.length - 1].x;
+        if (leftPad + width - lastLabelX > 40) {
+            xLabels.push({ x: leftPad + width, label: formatTime(endTime) });
         }
     }
 
