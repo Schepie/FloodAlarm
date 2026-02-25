@@ -50,7 +50,8 @@ export const translations = {
         sim_control: "Sim",
         min: "Min",
         max: "Max",
-        window: "window"
+        window: "window",
+        battery_warning: "(battery drains faster if measurement frequency increases)"
     },
     nl: {
         title: "Overstromingsmonitor",
@@ -103,7 +104,8 @@ export const translations = {
         sim_control: "Sim",
         min: "Min",
         max: "Max",
-        window: "venster"
+        window: "venster",
+        battery_warning: "(batterij raakt sneller leeg bij hogere meetfrequentie)"
     },
     fr: {
         title: "Moniteur d'Inondation",
@@ -156,7 +158,8 @@ export const translations = {
         sim_control: "Sim",
         min: "Min",
         max: "Max",
-        window: "fenêtre"
+        window: "fenêtre",
+        battery_warning: "(la batterie se vide plus rapidement si la fréquence de mesure augmente)"
     },
     de: {
         title: "Hochwassermonitor",
@@ -209,6 +212,7 @@ export const translations = {
         sim_control: "Sim",
         min: "Min",
         max: "Max",
-        window: "Fenster"
+        window: "Fenster",
+        battery_warning: "(Batterie entlädt sich schneller, wenn die Messfrequenz erhöht wird)"
     }
 };
