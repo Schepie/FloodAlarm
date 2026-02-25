@@ -13,7 +13,7 @@
 
 // ─── Timing (milliseconds) ─────────────────────────────────────────────────
 #define SENSOR_READ_INTERVAL_MS    2000UL       // Read sensor every 2 s
-#define LOG_INTERVAL_MS            600000UL     // Log to CSV every 10 min
+#define LOG_INTERVAL_MS            60000UL      // Log to CSV every 1 min
 #define WEATHER_POLL_INTERVAL_MS   1800000UL    // Poll weather every 30 min
 #define WS_BROADCAST_INTERVAL_MS   2000UL       // WebSocket push every 2 s
 #define CLOUD_PUSH_INTERVAL_MS     15000UL      // Push to Netlify every 15 s

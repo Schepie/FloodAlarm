@@ -2,20 +2,25 @@
 #include <Arduino.h>
 
 namespace CloudSync {
+    struct CloudConfig {
+        int32_t nextIntervalS = -1;
+        float warningThreshold = -1.0f;
+        float alarmThreshold = -1.0f;
+        bool success = false;
+    };
+
     /**
-     * @brief Pushes current system status to the Netlify Cloud Store.
-     * 
-     * @param distance Internal distance reading (cm)
+     * @brief Pushes current monitoring data to Netlify.
+     * @param distance Measured water level
      * @param warnThr Current warning threshold
      * @param alarmThr Current alarm threshold
-     * @param status Current status string ("NORMAL", "WARNING", "ALARM")
-     * @param rainExpected Boolean if rain is in forecast
+     * @param status Current status (NORMAL, WARNING, ALARM)
+     * @param rainExpected Boolean weather condition
      * @param forecast Text description of forecast
-     * @return true if push succeeded
+     * @return CloudConfig containing updated settings from server
      */
-    // Returns next measurement interval in seconds if successful, negative on error.
-    int32_t pushData(float distance, float warnThr, float alarmThr, 
-                     const String& status, bool rainExpected, const String& forecast);
+    CloudConfig pushData(float distance, float warnThr, float alarmThr, 
+                        const String& status, bool rainExpected, const String& forecast);
 
 
     /**

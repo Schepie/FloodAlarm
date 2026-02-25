@@ -253,6 +253,8 @@ const App = () => {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isWeatherCompact, setIsWeatherCompact] = useState(false);
     const [isSimCompact, setIsSimCompact] = useState(true);
+    const [cloudApiKey, setCloudApiKey] = useState(localStorage.getItem('flood_api_key') || '');
+
 
     const t = (key) => translations[language][key] || key;
 
@@ -362,8 +364,9 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'change_me_later'
+                    'Authorization': cloudApiKey
                 },
+
                 body: JSON.stringify({
                     station: selectedStation,
                     distance: status?.distance || 100,
@@ -376,8 +379,10 @@ const App = () => {
                 })
             });
             if (!res.ok) throw new Error('Save failed');
+            localStorage.setItem('flood_api_key', cloudApiKey);
             setIsSettingsOpen(false);
             fetchStatus();
+
         } catch (e) {
             alert('Failed to save settings to cloud');
         }
@@ -389,8 +394,9 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'change_me_later'
+                    'Authorization': cloudApiKey
                 },
+
                 body: JSON.stringify({
                     station,
                     distance: distance,
@@ -1112,7 +1118,26 @@ const App = () => {
                                             </div>
                                         </div>
 
+                                        <div className="mt-8 pt-8 border-t border-slate-800">
+                                            <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                                <ShieldAlert className="w-4 h-4 text-sky-400" />
+                                                Cloud Settings
+                                            </h3>
+                                            <div className="space-y-3">
+                                                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Netlify API Key</label>
+                                                <input
+                                                    type="password"
+                                                    value={cloudApiKey}
+                                                    onChange={(e) => setCloudApiKey(e.target.value)}
+                                                    placeholder="Enter CLOUD_API_KEY"
+                                                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-sky-400 focus:border-sky-500 outline-none transition-all"
+                                                />
+                                                <p className="text-[9px] text-slate-600 font-medium">This key is required to save changes to the cloud. Find it in your Config.h (CLOUD_API_KEY).</p>
+                                            </div>
+                                        </div>
+
                                         <div className="mt-8 pt-8 border-t border-slate-800 pb-2">
+
                                             <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
                                                 <Waves className="w-4 h-4 text-sky-400" />
                                                 {t('language')}

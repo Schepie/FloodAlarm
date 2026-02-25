@@ -17,27 +17,29 @@ export default async (req, context) => {
 
     try {
         const body = await req.json();
-        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde" } = body;
-
-        const sensorData = {
-            distance,
-            warning,
-            alarm,
-            status,
-            forecast,
-            rainExpected,
-            river,
-            lastSeen: new Date().toISOString()
-        };
-
+        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals } = body;
 
         const store = getStore("flood_data");
 
         // Get existing stations data or start fresh
         let stations = await store.get("stations_data", { type: "json" }) || {};
+        const existingData = stations[station] || {};
+
+        const sensorData = {
+            distance,
+            warning: (warning !== undefined) ? warning : (existingData.warning || 30.0),
+            alarm: (alarm !== undefined) ? alarm : (existingData.alarm || 15.0),
+            status,
+            forecast,
+            rainExpected,
+            river,
+            intervals: intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 },
+            lastSeen: new Date().toISOString()
+        };
 
         // Update the specific station
         stations[station] = sensorData;
+
 
         // --- History Logic ---
         const historyStore = getStore("flood_history");
@@ -63,14 +65,21 @@ export default async (req, context) => {
         // --- End History Logic ---
 
         // Determine next measurement interval (in seconds)
-        let nextInterval = 900; // Default: 15 min (Sunny)
+        const userIntervals = intervals || (stations[station] && stations[station].intervals) || {
+            sunny: 15,
+            moderate: 10,
+            stormy: 5,
+            waterbomb: 2
+        };
+
+        let nextInterval = userIntervals.sunny * 60; // Default: Sunny
 
         if (status === 'ALARM') {
-            nextInterval = 120; // 2 min (Waterbomb/Critical)
+            nextInterval = userIntervals.waterbomb * 60;
         } else if (status === 'WARNING' || rainExpected) {
-            nextInterval = 300; // 5 min (Stormy/Heavy)
+            nextInterval = userIntervals.stormy * 60;
         } else if (forecast && (forecast.toLowerCase().includes('rain') || forecast.toLowerCase().includes('drizzle'))) {
-            nextInterval = 600; // 10 min (Moderate Rain)
+            nextInterval = userIntervals.moderate * 60;
         }
 
         await store.setJSON("latest_status", sensorData);

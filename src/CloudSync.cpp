@@ -9,10 +9,11 @@
 namespace CloudSync {
     static Preferences prefs;
 
-    int32_t pushData(float distance, float warnThr, float alarmThr, 
-                     const String& status, bool rainExpected, const String& forecast) {
+    CloudConfig pushData(float distance, float warnThr, float alarmThr, 
+                        const String& status, bool rainExpected, const String& forecast) {
         
-        if (WiFi.status() != WL_CONNECTED) return -1;
+        CloudConfig config;
+        if (WiFi.status() != WL_CONNECTED) return config;
 
         // Load metadata
         prefs.begin("wifi", true); // read-only
@@ -49,7 +50,6 @@ namespace CloudSync {
             serializeJson(doc, payload);
 
             int httpCode = http.POST(payload);
-            int32_t nextInterval = -1;
 
             if (httpCode > 0) {
                 Serial.printf("[Cloud] POST result: %d\n", httpCode);
@@ -58,22 +58,33 @@ namespace CloudSync {
                 if (httpCode == 200) {
                     JsonDocument respDoc;
                     deserializeJson(respDoc, response);
-                    if (respDoc.containsKey("nextInterval")) {
-                        nextInterval = respDoc["nextInterval"];
-                        Serial.printf("[Cloud] Next interval from server: %d s\n", nextInterval);
+                    
+                    config.success = true;
+                    
+                    if (respDoc["nextInterval"].is<int32_t>()) {
+                        config.nextIntervalS = respDoc["nextInterval"];
+                    }
+                    
+                    // Parse updated thresholds if returned inside "data"
+                    if (respDoc["data"]["warning"].is<float>()) {
+                        config.warningThreshold = respDoc["data"]["warning"];
+                    }
+                    if (respDoc["data"]["alarm"].is<float>()) {
+                        config.alarmThreshold = respDoc["data"]["alarm"];
                     }
                 } else {
                     Serial.println("[Cloud] Response: " + response);
                 }
                 http.end();
-                return nextInterval;
+                return config;
             } else {
                 Serial.printf("[Cloud] POST failed: %s\n", http.errorToString(httpCode).c_str());
             }
             http.end();
         }
-        return -1;
+        return config;
     }
+
 
 
     bool migrateStation(const String& oldName, const String& newName, const String& river) {

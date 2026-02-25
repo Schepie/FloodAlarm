@@ -4,6 +4,8 @@
 #include <time.h>
 
 #include "Config.h"
+#include <Preferences.h>
+
 #include "WiFiProvisioning.h"
 #include "SensorManager.h"
 #include "StorageManager.h"
@@ -11,6 +13,9 @@
 #include "WebHandler.h"
 #include "NotificationManager.h"
 #include "CloudSync.h"
+
+static Preferences settings;
+
 
 // ─── Globals ────────────────────────────────────────────────────────────────
 AsyncWebServer server(80);
@@ -55,12 +60,8 @@ void setAutoSimulation(bool enabled) {
 }
 
 
-void setAutoSimulation(bool enabled) {
-    autoSimEnabled = enabled;
-}
-
-
 // ─── NTP Time ───────────────────────────────────────────────────────────────
+
 unsigned long getEpoch() {
     return (unsigned long)time(nullptr);
 }
@@ -135,6 +136,14 @@ void setup() {
     WeatherSvc::begin(OWM_API_KEY, OWM_CITY, OWM_COUNTRY);
     WeatherSvc::update();  // initial fetch
 
+    // Load thresholds from preferences
+    settings.begin("flood", false);
+    warningThreshold = settings.getFloat("warn", DEFAULT_WARNING_CM);
+    alarmThreshold   = settings.getFloat("alarm", DEFAULT_ALARM_CM);
+    settings.end();
+    Serial.printf("[Main] Loaded Thresholds: Warn=%.1f, Alarm=%.1f\n", warningThreshold, alarmThreshold);
+
+
     // Web server
     WebHandler::begin(server, ws);
     server.begin();
@@ -170,17 +179,20 @@ void loop() {
         }
         
         // Update thresholds and buzzer
+        float baseWarn = warningThreshold;
+        float baseAlarm = alarmThreshold;
+        
+        float activeWarn = baseWarn;
+        float activeAlarm = baseAlarm;
+
         if (WeatherSvc::isRainExpected()) {
-            warningThreshold = DEFAULT_WARNING_CM * RAIN_THRESHOLD_FACTOR;
-            alarmThreshold   = DEFAULT_ALARM_CM   * RAIN_THRESHOLD_FACTOR;
-        } else {
-            warningThreshold = DEFAULT_WARNING_CM;
-            alarmThreshold   = DEFAULT_ALARM_CM;
+            activeWarn *= RAIN_THRESHOLD_FACTOR;
+            activeAlarm *= RAIN_THRESHOLD_FACTOR;
         }
 
         String statusStr = "NORMAL";
         if (currentDistance > 0) {
-            if (currentDistance <= alarmThreshold) {
+            if (currentDistance <= activeAlarm) {
                 statusStr = "ALARM";
                 digitalWrite(PIN_BUZZER, HIGH);
                 buzzerActive = true;
@@ -188,7 +200,7 @@ void loop() {
                     lastNotificationTime = now;
                     NotificationMgr::sendTelegram("🚨 FLOOD ALARM! Water: " + String(currentDistance) + " cm");
                 }
-            } else if (currentDistance <= warningThreshold) {
+            } else if (currentDistance <= activeWarn) {
                 statusStr = "WARNING";
                 digitalWrite(PIN_BUZZER, (now / 500) % 2); // Blink buzzer
                 buzzerActive = false;
@@ -199,12 +211,35 @@ void loop() {
         }
 
         // ── Cloud Push (Every sensor read) ──────────────────────────────
-        int32_t nextSec = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, 
+        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, baseWarn, baseAlarm, 
                                             statusStr, WeatherSvc::isRainExpected(), 
                                             WeatherSvc::getForecastDescription());
-        if (nextSec >= 30) {
-            setMeasurementInterval(nextSec);
+        
+        if (config.success) {
+            if (config.nextIntervalS >= 30) {
+                setMeasurementInterval(config.nextIntervalS);
+            }
+            if (config.warningThreshold > 0) {
+                if (warningThreshold != config.warningThreshold) {
+                    warningThreshold = config.warningThreshold;
+                    Serial.printf("[Cloud] New Base Warn: %.1f cm\n", warningThreshold);
+                    settings.begin("flood", false);
+                    settings.putFloat("warn", warningThreshold);
+                    settings.end();
+                }
+            }
+            if (config.alarmThreshold > 0) {
+                if (alarmThreshold != config.alarmThreshold) {
+                    alarmThreshold = config.alarmThreshold;
+                    Serial.printf("[Cloud] New Base Alarm: %.1f cm\n", alarmThreshold);
+                    settings.begin("flood", false);
+                    settings.putFloat("alarm", alarmThreshold);
+                    settings.end();
+                }
+            }
+
         }
+
     }
 
     // ── Broadcast via WebSocket (Frequent updates) ──────────────────────

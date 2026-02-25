@@ -377,7 +377,7 @@
 
     <!-- Historical Chart -->
     <div class="card full">
-      <h2>History (last 24 h)</h2>
+      <h2>History (last 1 h)</h2>
       <div class="chart-wrap">
         <canvas id="histChart"></canvas>
       </div>
@@ -635,12 +635,16 @@
 
           const labels = [];
           const data = [];
+          const now = Math.floor(Date.now() / 1000);
+          const oneHourAgo = now - 3600;
 
           for (let i = 1; i < lines.length; i++) {
             const parts = lines[i].split(',');
             if (parts.length < 2) continue;
             const ts = parseInt(parts[0]);
+            if (ts < oneHourAgo) continue; // Filter for last 1 hour
             const dist = parseFloat(parts[1]);
+
             // Format timestamp as HH:MM
             const d = new Date(ts * 1000);
             const hh = String(d.getHours()).padStart(2, '0');
@@ -656,9 +660,9 @@
         .catch(err => console.error('History fetch error:', err));
     }
 
-    // Initial load + refresh every 10 min
+    // Initial load + refresh every 1 min
     fetchHistory();
-    setInterval(fetchHistory, 600000);
+    setInterval(fetchHistory, 60000);
   </script>
 </body>
 
