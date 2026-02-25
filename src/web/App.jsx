@@ -523,6 +523,8 @@ const App = () => {
 
         if (active) {
             handleSimPush(selectedStation, distance);
+        } else {
+            handleSimPush(selectedStation, distance, 'sunny');
         }
     };
 
@@ -994,140 +996,142 @@ const App = () => {
 
                     <div className="space-y-6">
                         {/* Simulator */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
-                        >
-                            <button
-                                onClick={() => setIsSimCompact(!isSimCompact)}
-                                className="flex items-center justify-between w-full group"
+                        {selectedStation && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
-                                        <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
-                                    </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
-                                        {selectedStation} SIMULATOR
-                                    </span>
-
-                                    {isSimCompact && isSimActive && (
-                                        <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
-                                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                                {simDistance}cm
-                                            </span>
+                                <button
+                                    onClick={() => setIsSimCompact(!isSimCompact)}
+                                    className="flex items-center justify-between w-full group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
+                                            <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                                </div>
-                            </button>
+                                        <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
+                                            {selectedStation} SIMULATOR
+                                        </span>
 
-                            <AnimatePresence>
-                                {!isSimCompact && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
-                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        className="overflow-hidden"
-                                    >
-                                        <div className={`space-y-6 transition-opacity duration-300`}>
-                                            <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
-                                                    <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                                        {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    onClick={() => handleSimChange(!isSimActive, simDistance)}
-                                                    className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                                >
-                                                    <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                </div>
+                                        {isSimCompact && isSimActive && (
+                                            <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
+                                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                    {simDistance}cm
+                                                </span>
                                             </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                                    </div>
+                                </button>
 
-                                            <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-
-                                                {/* Weather Selection */}
-                                                <div className="space-y-3 pb-2">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('weather_condition')}</span>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {[
-                                                            { id: 'sunny', label: t('sunny'), icon: Sun },
-                                                            { id: 'moderate', label: t('moderate'), icon: CloudRain },
-                                                            { id: 'stormy', label: t('stormy'), icon: CloudLightning },
-                                                            { id: 'waterbomb', label: t('waterbomb'), icon: Waves }
-                                                        ].map(w => (
-                                                            <button
-                                                                key={w.id}
-                                                                onClick={() => {
-                                                                    setSimWeather(w.id);
-                                                                    handleSimPush(selectedStation, simDistance, w.id);
-                                                                }}
-                                                                className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
-                                                                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
-                                                                    : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
-                                                                    }`}
-                                                            >
-                                                                <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
-                                                                <span className="text-[10px] font-black uppercase tracking-tight">{w.label}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className={`space-y-4 ${selectedStation === "Antwerpen" ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-                                                    <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                        <span>{t('virtual_distance')}</span>
-                                                        <span className="text-xl font-black text-purple-400 monospace">
-                                                            {(selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance)}
-                                                            <span className="text-[10px] ml-0.5">cm</span>
+                                <AnimatePresence>
+                                    {!isSimCompact && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className={`space-y-6 transition-opacity duration-300`}>
+                                                <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
+                                                        <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                            {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
                                                         </span>
                                                     </div>
-                                                    <div className="px-2">
-                                                        <input
-                                                            type="range"
-                                                            min="2"
-                                                            max="400"
-                                                            disabled={selectedStation === "Antwerpen"}
-                                                            value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value);
-                                                                console.log(`[Slider] New value for ${selectedStation}: ${val}`);
-                                                                setSimDistance(val);
-                                                            }}
-                                                            onMouseUp={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
-                                                            onTouchEnd={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
-                                                            className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
-                                                        />
+                                                    <div
+                                                        onClick={() => handleSimChange(!isSimActive, simDistance)}
+                                                        className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
+                                                    >
+                                                        <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </div>
                                                 </div>
 
-                                                {selectedStation === "Antwerpen" && (
-                                                    <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex items-center gap-3">
-                                                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500/60" />
-                                                        <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-tight uppercase leading-none">
-                                                            {t('real_station_safeguard')}
-                                                        </p>
-                                                    </div>
-                                                )}
+                                                <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
 
-                                                <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
-                                                    <div className="flex items-start gap-3">
-                                                        <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
-                                                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
-                                                            {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
-                                                        </p>
+                                                    {/* Weather Selection */}
+                                                    <div className="space-y-3 pb-2">
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('weather_condition')}</span>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {[
+                                                                { id: 'sunny', label: t('sunny'), icon: Sun },
+                                                                { id: 'moderate', label: t('moderate'), icon: CloudRain },
+                                                                { id: 'stormy', label: t('stormy'), icon: CloudLightning },
+                                                                { id: 'waterbomb', label: t('waterbomb'), icon: Waves }
+                                                            ].map(w => (
+                                                                <button
+                                                                    key={w.id}
+                                                                    onClick={() => {
+                                                                        setSimWeather(w.id);
+                                                                        handleSimPush(selectedStation, simDistance, w.id);
+                                                                    }}
+                                                                    className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
+                                                                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                                                                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
+                                                                        }`}
+                                                                >
+                                                                    <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
+                                                                    <span className="text-[10px] font-black uppercase tracking-tight">{w.label}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`space-y-4 ${selectedStation === "Antwerpen" ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                                                        <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                            <span>{t('virtual_distance')}</span>
+                                                            <span className="text-xl font-black text-purple-400 monospace">
+                                                                {(selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance)}
+                                                                <span className="text-[10px] ml-0.5">cm</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="px-2">
+                                                            <input
+                                                                type="range"
+                                                                min="2"
+                                                                max="400"
+                                                                disabled={selectedStation === "Antwerpen"}
+                                                                value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value);
+                                                                    console.log(`[Slider] New value for ${selectedStation}: ${val}`);
+                                                                    setSimDistance(val);
+                                                                }}
+                                                                onMouseUp={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
+                                                                onTouchEnd={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
+                                                                className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {selectedStation === "Antwerpen" && (
+                                                        <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex items-center gap-3">
+                                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500/60" />
+                                                            <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-tight uppercase leading-none">
+                                                                {t('real_station_safeguard')}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
+                                                        <div className="flex items-start gap-3">
+                                                            <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
+                                                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
+                                                                {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        )}
 
                     </div>
                 </div>
