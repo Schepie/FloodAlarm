@@ -331,7 +331,11 @@ const App = () => {
             {/* Station List */}
             <div className="glass-card rounded-3xl p-6 z-10 transition-all">
                 <button
-                    onClick={() => setExpandedRivers(prev => ({ ...prev, SCHELDE: !prev.SCHELDE }))}
+                    onClick={() => setExpandedRivers(prev => {
+                        const nextState = !prev.SCHELDE;
+                        if (!nextState) setSelectedStation(null);
+                        return { ...prev, SCHELDE: nextState };
+                    })}
                     className="flex items-center justify-between w-full mb-0 group"
                 >
                     <div className="flex items-center gap-3">
