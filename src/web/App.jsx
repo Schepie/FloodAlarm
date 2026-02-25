@@ -220,7 +220,7 @@ const App = () => {
         return diffMin > bufferWindow;
     };
 
-    const status = allStations[selectedStation];
+    const status = allStations[selectedStation] || allStations["Belgium"];
 
     const getStatusColor = () => {
         if (isOffline) return 'text-red-500';
@@ -365,7 +365,7 @@ const App = () => {
                                     return (
                                         <button
                                             key={name}
-                                            onClick={() => setSelectedStation(name)}
+                                            onClick={() => setSelectedStation(prev => prev === name ? null : name)}
                                             className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 ${isSelected
                                                 ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
                                                 : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
@@ -481,11 +481,19 @@ const App = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="glass-card rounded-3xl p-6 z-10"
             >
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                        <CloudSun className="w-4 h-4 text-amber-400" />
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-500/10 rounded-lg">
+                            <CloudSun className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <span className="text-sm font-black uppercase tracking-wider text-slate-300">Weather & Forecast</span>
                     </div>
-                    <span className="text-sm font-black uppercase tracking-wider text-slate-300">Weather & Forecast</span>
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 rounded-full border border-slate-700/50">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {selectedStation || "Belgium"}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-8">

@@ -45,6 +45,24 @@ export default async (req, context) => {
             return acc;
         }, {});
 
+        // Add global Belgium weather for when no station is selected
+        allStations["Belgium"] = {
+            distance: 0,
+            status: "NORMAL",
+            isSimulated: true,
+            weather: {
+                temp: 12,
+                condition: "Cloudy",
+                rainProb: 45,
+                windSpeed: 10,
+                daily: [
+                    { day: "Wed", temp: 13, icon: "cloud-sun", rain: 20 },
+                    { day: "Thu", temp: 10, icon: "cloud-rain", rain: 60 },
+                    { day: "Fri", temp: 11, icon: "cloud", rain: 15 }
+                ]
+            }
+        };
+
         return new Response(JSON.stringify(allStations), {
             status: 200,
             headers: {
