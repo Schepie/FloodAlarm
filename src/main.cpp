@@ -37,6 +37,13 @@ unsigned long lastWeatherPoll     = 0;
 unsigned long lastWSBroadcast     = 0;
 unsigned long lastNotificationTime = 0;
 unsigned long lastCloudPush       = 0;
+unsigned long lastAutoSimUpdate   = 0;
+bool autoSimEnabled = false;
+
+void setAutoSimulation(bool enabled) {
+    autoSimEnabled = enabled;
+}
+
 
 // ─── NTP Time ───────────────────────────────────────────────────────────────
 unsigned long getEpoch() {
@@ -125,7 +132,17 @@ void setup() {
 void loop() {
     unsigned long now = millis();
 
+    // ── Auto-Simulation ────────────────────────────────────────────────
+    if (autoSimEnabled && (now - lastAutoSimUpdate >= 60000UL)) {
+        lastAutoSimUpdate = now;
+        simulationActive = true;
+        simulatedDistance = 20.0f + (random(0, 1800) / 10.0f); // 20.0cm to 200.0cm
+        Serial.printf("[AutoSim] Next distance: %.1f cm\n", simulatedDistance);
+    }
+
+
     // ── Read sensor ─────────────────────────────────────────────────────
+
     if (now - lastSensorRead >= SENSOR_READ_INTERVAL_MS) {
         lastSensorRead = now;
         

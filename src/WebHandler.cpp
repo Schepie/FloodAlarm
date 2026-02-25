@@ -6,8 +6,11 @@
 #include "NotificationManager.h"
 #include <Preferences.h>
 #include "Config.h"
+#include "CloudSync.h"
 
 extern void setSimulation(bool active, float distance);
+extern void setAutoSimulation(bool enabled);
+
 
 extern float currentDistance;
 extern float warningThreshold;
@@ -124,7 +127,47 @@ void WebHandler::begin(AsyncWebServer& server, AsyncWebSocket& ws) {
         }
     });
 
+    // ── API: Settings (Update Station/River) ────────────────────────────
+    server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest* req) {
+        String newStation = "";
+        String newRiver = "";
+
+        if (req->hasParam("station", true)) newStation = req->getParam("station", true)->value();
+        if (req->hasParam("river", true)) newRiver = req->getParam("river", true)->value();
+
+        if (newStation.length() > 0) {
+            Preferences prefs;
+            prefs.begin("wifi", false);
+            String oldStation = prefs.getString("station", "Antwerpen");
+            
+            // Trigger Cloud Migration if name changed
+            if (newStation != oldStation) {
+                CloudSync::migrateStation(oldStation, newStation, newRiver);
+            }
+
+            prefs.putString("station", newStation);
+            if (newRiver.length() > 0) prefs.putString("river", newRiver);
+            prefs.end();
+            req->send(200, "text/plain", "OK");
+        } else {
+            req->send(400, "text/plain", "Missing station name");
+        }
+    });
+
+    // ── API: Auto Simulation ────────────────────────────────────────────
+    server.on("/api/autosim", HTTP_POST, [](AsyncWebServerRequest* req) {
+
+        if (req->hasParam("enabled", true)) {
+            bool enabled = req->getParam("enabled", true)->value() == "true";
+            setAutoSimulation(enabled);
+            req->send(200, "text/plain", "OK");
+        } else {
+            req->send(400, "text/plain", "Missing enabled param");
+        }
+    });
+
     Serial.println("[Web] Routes registered.");
+
 }
 
 void WebHandler::broadcastLevel(AsyncWebSocket& ws, float distanceCm,

@@ -11,8 +11,18 @@ export default async (req, context) => {
     const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
 
     if (authHeader !== SECRET_KEY) {
-        return new Response('Unauthorized', { status: 401 });
+        return new Response(JSON.stringify({
+            error: 'Unauthorized',
+            receivedPrefix: authHeader ? authHeader.substring(0, 4) + "..." : "null",
+            receivedLength: authHeader ? authHeader.length : 0,
+            expectedLength: SECRET_KEY.length,
+            envSet: process.env.FLOOD_API_KEY ? "yes" : "no"
+        }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" }
+        });
     }
+
 
     try {
         const body = await req.json();

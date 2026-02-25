@@ -27,10 +27,15 @@ namespace CloudSync {
         
         Serial.println("[Cloud] Pushing to Netlify...");
 
-        if (http.begin(client, CLOUD_NETLIFY_URL)) {
+        // Send API key as query parameter for authentication
+        String fullUrl = String(CLOUD_NETLIFY_URL) + "?key=" + String(CLOUD_API_KEY);
+
+        if (http.begin(client, fullUrl)) {
             http.addHeader("Content-Type", "application/json");
+            http.addHeader("Authorization", CLOUD_API_KEY);
             
             // Build JSON payload
+
             JsonDocument doc;
             doc["distance"] = distance;
             doc["warning"] = warnThr;
@@ -40,7 +45,8 @@ namespace CloudSync {
             doc["forecast"] = forecast;
             doc["station"] = station;
             doc["river"] = river;
-            doc["key"] = CLOUD_API_KEY; // Using query param/header style for auth
+            // Key removed from body, now in URL
+
 
 
             String payload;
@@ -61,4 +67,37 @@ namespace CloudSync {
         }
         return false;
     }
+
+    bool migrateStation(const String& oldName, const String& newName, const String& river) {
+
+        if (WiFi.status() != WL_CONNECTED) return false;
+
+        WiFiClientSecure client;
+        client.setInsecure();
+        HTTPClient http;
+
+        // Construct migration URL (based on the push URL but different endpoint)
+        String url = CLOUD_NETLIFY_URL;
+        url.replace("push-status", "migrate-station");
+        url += "?key=";
+        url += CLOUD_API_KEY;
+
+        if (http.begin(client, url)) {
+            http.addHeader("Content-Type", "application/json");
+            
+            JsonDocument doc;
+            doc["oldStation"] = oldName;
+            doc["newStation"] = newName;
+            doc["river"] = river;
+
+            String payload;
+            serializeJson(doc, payload);
+
+            int httpCode = http.POST(payload);
+            http.end();
+            return (httpCode == 200 || httpCode == 204);
+        }
+        return false;
+    }
 }
+

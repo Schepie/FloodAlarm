@@ -350,6 +350,29 @@
         <input type="range" id="simSlider" min="2" max="400" value="100"
           style="width:100%; accent-color:var(--accent);">
       </div>
+      <div
+        style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:10px;">
+        <label class="switch">
+          <input type="checkbox" id="autoSimToggle">
+          <span class="slider-round"></span>
+        </label>
+        <span style="font-size:0.85rem">Auto-Cycle (1 min)</span>
+      </div>
+    </div>
+
+    <!-- Station Settings -->
+    <div class="card">
+      <h2>Station Settings</h2>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <input type="text" id="settingStation" placeholder="Station Name"
+          style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+        <input type="text" id="settingRiver" placeholder="River Name"
+          style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+        <button onclick="saveSettings()"
+          style="background:var(--accent); border:none; color:black; font-weight:bold; padding:8px; border-radius:8px; cursor:pointer;">Update
+          Station</button>
+      </div>
+      <p id="settingStatus" style="font-size:0.75rem; margin-top:5px; color:var(--text-muted)"></p>
     </div>
 
     <!-- Historical Chart -->
@@ -363,6 +386,7 @@
   </div>
 
   <footer>ESP32 Flood Monitoring System &middot; Last updated: <span id="lastUpdate">Never</span></footer>
+
 
   <script>
     // ─── WebSocket ────────────────────────────────────────────────────────────
@@ -460,14 +484,52 @@
       }
 
       // Additional Metadata
-      if (d.station) document.getElementById('headerStation').textContent = d.station;
-      if (d.river) document.getElementById('headerRiver').textContent = d.river;
+      if (d.station) {
+        document.getElementById('headerStation').textContent = d.station;
+        if (document.activeElement !== document.getElementById('settingStation')) {
+          document.getElementById('settingStation').value = d.station;
+        }
+      }
+      if (d.river) {
+        document.getElementById('headerRiver').textContent = d.river;
+        if (document.activeElement !== document.getElementById('settingRiver')) {
+          document.getElementById('settingRiver').value = d.river;
+        }
+      }
       if (d.interval) document.getElementById('intervalVal').textContent = d.interval;
+
 
 
       // Update timestamp
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
     }
+
+    function saveSettings() {
+      const station = document.getElementById('settingStation').value;
+      const river = document.getElementById('settingRiver').value;
+      const status = document.getElementById('settingStatus');
+
+      status.textContent = "Updating...";
+      status.style.color = "var(--accent)";
+
+      const formData = new FormData();
+      formData.append('station', station);
+      formData.append('river', river);
+
+      fetch('/api/settings', {
+        method: 'POST',
+        body: formData
+      }).then(r => {
+        if (!r.ok) throw new Error("Failed to save");
+        status.textContent = "Saved! Cloud migration triggered.";
+        status.style.color = "var(--green)";
+        setTimeout(() => status.textContent = "", 5000);
+      }).catch(err => {
+        status.textContent = "Error: " + err.message;
+        status.style.color = "var(--red)";
+      });
+    }
+
 
     // ─── Simulation ───────────────────────────────────────────────────────────
     const simToggle = document.getElementById('simToggle');
@@ -504,7 +566,18 @@
       sendSim();
     };
 
+    const autoSimToggle = document.getElementById('autoSimToggle');
+    autoSimToggle.onchange = () => {
+      const formData = new FormData();
+      formData.append('enabled', autoSimToggle.checked);
+      fetch('/api/autosim', {
+        method: 'POST',
+        body: formData
+      }).catch(err => console.error('AutoSim error:', err));
+    };
+
     connectWS();
+
     fetchStatus();
 
     // ─── Historical Chart ─────────────────────────────────────────────────────
