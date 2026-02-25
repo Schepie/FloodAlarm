@@ -462,8 +462,7 @@ const App = () => {
 
         console.log(`[Sim] Pushing to ${station}: ${distance}cm (Force Weather: ${forceWeather || 'None'})`);
 
-        // Safeguard: For Antwerpen (Real), never override distance from simulator
-        const finalDistance = (station === "Antwerpen") ? (status?.distance || 100) : distance;
+        const finalDistance = distance; // Always use the slider value
         const weatherToUse = forceWeather || simWeather;
 
         const weatherMap = {
