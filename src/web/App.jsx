@@ -393,6 +393,11 @@ const App = () => {
             return;
         }
 
+        if (!selectedStation) {
+            alert('Please select a specific measuring station from the river list before saving settings.');
+            return;
+        }
+
         let cleanKey = cloudApiKey.trim();
         // If user accidentally pasted the whole #define line from Config.h
         if (cleanKey.includes('#define') || cleanKey.includes('"')) {
