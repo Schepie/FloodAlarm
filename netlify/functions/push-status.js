@@ -35,8 +35,10 @@ export default async (req, context) => {
     const normalizedAuth = authHeader.trim();
 
     if (normalizedAuth !== SECRET_KEY.trim()) {
-        console.warn(`[Auth] Unauthorized attempt. Expected: ${SECRET_KEY.substring(0, 4)}... Received: ${normalizedAuth.substring(0, 4)}...`);
-        return new Response('Unauthorized: API Key mismatch. Check your dashboard settings.', { status: 401, headers: corsHeaders });
+        const expectedHint = SECRET_KEY.trim().substring(0, 3);
+        const receivedHint = normalizedAuth.substring(0, 3);
+        console.warn(`[Auth] Unauthorized attempt. Expected: ${expectedHint}... Received: ${receivedHint}...`);
+        return new Response(`Unauthorized: API Key mismatch. Server expected starts with "${expectedHint}", but received starts with "${receivedHint}". Check your Netlify Env vs Dashboard Settings.`, { status: 401, headers: corsHeaders });
     }
 
 
