@@ -9,8 +9,7 @@
 namespace CloudSync {
     static Preferences prefs;
 
-    CloudConfig pushData(float distance, float warnThr, float alarmThr, 
-                        const String& status, bool rainExpected, const String& forecast) {
+    CloudConfig pushData(float distance, float warnThr, float alarmThr, const String& status) {
         
         CloudConfig config;
         if (WiFi.status() != WL_CONNECTED) return config;
@@ -34,14 +33,12 @@ namespace CloudSync {
             http.addHeader("Content-Type", "application/json");
             http.addHeader("Authorization", CLOUD_API_KEY);
             
-            // Build JSON payload
+            // Build JSON payload — ESP sends only sensor data, cloud fetches weather independently
             JsonDocument doc;
             doc["distance"] = distance;
             doc["warning"] = warnThr;
             doc["alarm"] = alarmThr;
             doc["status"] = status;
-            doc["rainExpected"] = rainExpected;
-            doc["forecast"] = forecast;
             doc["station"] = station;
             doc["river"] = river;
 

@@ -215,9 +215,7 @@ void loop() {
         }
 
         // ── Cloud Push (Every sensor read) ──────────────────────────────
-        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, baseWarn, baseAlarm, 
-                                            statusStr, WeatherSvc::isRainExpected(), 
-                                            WeatherSvc::getForecastDescription());
+        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, baseWarn, baseAlarm, statusStr);
         
         if (config.success) {
             if (config.nextIntervalS >= 30) {

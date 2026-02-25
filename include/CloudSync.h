@@ -10,17 +10,14 @@ namespace CloudSync {
     };
 
     /**
-     * @brief Pushes current monitoring data to Netlify.
-     * @param distance Measured water level
+     * @brief Pushes current sensor data to Netlify. Cloud fetches weather independently.
+     * @param distance Measured water level (cm)
      * @param warnThr Current warning threshold
      * @param alarmThr Current alarm threshold
-     * @param status Current status (NORMAL, WARNING, ALARM)
-     * @param rainExpected Boolean weather condition
-     * @param forecast Text description of forecast
+     * @param status Current status string (NORMAL, WARNING, ALARM)
      * @return CloudConfig containing updated settings from server
      */
-    CloudConfig pushData(float distance, float warnThr, float alarmThr, 
-                        const String& status, bool rainExpected, const String& forecast);
+    CloudConfig pushData(float distance, float warnThr, float alarmThr, const String& status);
 
 
     /**

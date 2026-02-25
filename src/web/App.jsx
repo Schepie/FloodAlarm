@@ -489,9 +489,9 @@ const App = () => {
                     warning: parseFloat(localWarning),
                     alarm: parseFloat(localAlarm),
                     status: finalDistance <= parseFloat(localAlarm) ? 'ALARM' : (finalDistance <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
-                    forecast: w.forecast,
-                    rainExpected: w.rain,
-                    intervals: localIntervals
+                    simWeatherTier: weatherToUse,  // cloud uses this to set weather+interval
+                    intervals: localIntervals,
+                    isUiUpdate: true
                 })
             });
             if (!res.ok) {
