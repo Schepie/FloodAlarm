@@ -32,8 +32,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         const entryDate = new Date(entry.ts);
         const diffMin = (now - entryDate) / 1000 / 60;
         switch (timeframe) {
-            case '5m': return diffMin <= 5;
-            case '30m': return diffMin <= 30;
+            case '1h': return diffMin <= 60;
             case '3h': return diffMin <= 180;
             case '8h': return diffMin <= 480;
             default: return true; // 24h
@@ -55,8 +54,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
     const leftPad = 30;
 
     const timeframeMs = {
-        '5m': 5 * 60 * 1000,
-        '30m': 30 * 60 * 1000,
+        '1h': 1 * 60 * 60 * 1000,
         '3h': 3 * 60 * 60 * 1000,
         '8h': 8 * 60 * 60 * 1000,
         '24h': 24 * 60 * 60 * 1000
@@ -81,7 +79,9 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const formatTime = (ts) => {
         const d = new Date(ts);
-        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        const isToday = new Date().toDateString() === d.toDateString();
+        const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        return isToday ? timeStr : `${d.getDate()}/${d.getMonth() + 1} ${timeStr}`;
     };
 
     const xLabels = [];
@@ -642,9 +642,67 @@ const App = () => {
                                                         exit={{ height: 0, opacity: 0 }}
                                                         className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
                                                     >
-                                                        {/* Timeframe Selector */}
+                                                        {/* Stats Header */}
+                                                        {(() => {
+                                                            const filtered = stationHistory.filter(d => {
+                                                                const diffMin = (new Date() - new Date(d.ts)) / 1000 / 60;
+                                                                if (timeframe === '1h') return diffMin <= 60;
+                                                                if (timeframe === '3h') return diffMin <= 180;
+                                                                if (timeframe === '8h') return diffMin <= 480;
+                                                                return true; // 24h
+                                                            });
+                                                            if (filtered.length === 0) return null;
+
+                                                            const minVal = Math.min(...filtered.map(d => d.val)).toFixed(1);
+                                                            const maxVal = Math.max(...filtered.map(d => d.val)).toFixed(1);
+
+                                                            return (
+                                                                <div className="flex justify-between items-center px-1">
+                                                                    <div className="flex gap-4">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('min')}</span>
+                                                                            <span className="text-sm font-black text-sky-400">
+                                                                                {minVal}
+                                                                                <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('max')}</span>
+                                                                            <span className="text-sm font-black text-slate-200">
+                                                                                {maxVal}
+                                                                                <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded-lg border border-slate-700/50">
+                                                                        {timeframe} {t('window')}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        {/* Graph Area */}
+                                                        <div className="h-32 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
+                                                            <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
+                                                                {stationHistory.length} pts
+                                                            </div>
+                                                            {isHistoryLoading ? (
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                                                                </div>
+                                                            ) : (
+                                                                <HistoricalGraph
+                                                                    data={stationHistory}
+                                                                    timeframe={timeframe}
+                                                                    warning={s?.warning || 30}
+                                                                    alarm={s?.alarm || 15}
+                                                                />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Timeframe Selector (Now below graph) */}
                                                         <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2 scrollbar-hide">
-                                                            {['5m', '30m', '3h', '8h', '24h'].map(tf => (
+                                                            {['1h', '3h', '8h', '24h'].map(tf => (
                                                                 <button
                                                                     key={tf}
                                                                     onClick={(e) => {
@@ -659,22 +717,6 @@ const App = () => {
                                                                     {tf}
                                                                 </button>
                                                             ))}
-                                                        </div>
-
-                                                        {/* Graph Area */}
-                                                        <div className="h-32 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
-                                                            {isHistoryLoading ? (
-                                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                                    <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                                                                </div>
-                                                            ) : (
-                                                                <HistoricalGraph
-                                                                    data={stationHistory}
-                                                                    timeframe={timeframe}
-                                                                    warning={s?.warning || 30}
-                                                                    alarm={s?.alarm || 15}
-                                                                />
-                                                            )}
                                                         </div>
                                                     </motion.div>
                                                 )}

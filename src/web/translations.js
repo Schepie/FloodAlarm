@@ -46,7 +46,10 @@ export const translations = {
         high_risk_desc: "Severe situation: ALARM level active with high rain probability. Waters are rising significantly.",
         elevated_risk_desc: "Precautionary state: WARNING level active with significant rain probability. Monitoring required for potential changes.",
         real_esp_control: "Real ESP Control",
-        sim_control: "Sim"
+        sim_control: "Sim",
+        min: "Min",
+        max: "Max",
+        window: "window"
     },
     nl: {
         title: "Overstromingsmonitor",
@@ -95,7 +98,10 @@ export const translations = {
         high_risk_desc: "Ernstige situatie: ALARM-niveau actief met hoge regenkans. Waterstanden stijgen aanzienlijk.",
         elevated_risk_desc: "Voorzorgstoestand: WAARSCHUWINGS-niveau actief met aanzienlijke regenkans. Monitoring vereist voor mogelijke veranderingen.",
         real_esp_control: "Echte ESP Controle",
-        sim_control: "Sim"
+        sim_control: "Sim",
+        min: "Min",
+        max: "Max",
+        window: "venster"
     },
     fr: {
         title: "Moniteur d'Inondation",
@@ -144,7 +150,10 @@ export const translations = {
         high_risk_desc: "Situation grave : Niveau ALARME actif avec une forte probabilité de pluie. Les eaux montent de manière significative.",
         elevated_risk_desc: "État de précaution : Niveau ALERTE actif avec une probabilité de pluie significative. Surveillance requise pour les changements potentiels.",
         real_esp_control: "Contrôle Réel ESP",
-        sim_control: "Sim"
+        sim_control: "Sim",
+        min: "Min",
+        max: "Max",
+        window: "fenêtre"
     },
     de: {
         title: "Hochwassermonitor",
@@ -193,6 +202,9 @@ export const translations = {
         high_risk_desc: "Schwere Situation: ALARM-Stufe aktiv bei hoher Regenwahrscheinlichkeit. Die Wasserstände steigen erheblich an.",
         elevated_risk_desc: "Vorsorgestatus: WARN-Stufe aktiv bei nennenswerter Regenwahrscheinlichkeit. Überwachung auf potenzielle Änderungen erforderlich.",
         real_esp_control: "Echte ESP-Steuerung",
-        sim_control: "Sim"
+        sim_control: "Sim",
+        min: "Min",
+        max: "Max",
+        window: "Fenster"
     }
 };
