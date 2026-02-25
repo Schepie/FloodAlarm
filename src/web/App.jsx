@@ -305,8 +305,20 @@ const App = () => {
             if (!res.ok) throw new Error('Cloud unreachable');
             const data = await res.json();
 
-            setAllStations(data);
-            const current = data[selectedStation.toLowerCase().trim()] || data[selectedStation];
+            // Remap cloud keys (now lowercase) back to display-name keys so all
+            // existing allStations[selectedStation] lookups keep working.
+            const STATION_DISPLAY = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
+            const normalized = { ...data }; // keep Belgium etc.
+            for (const displayName of STATION_DISPLAY) {
+                const lk = displayName.toLowerCase();
+                if (data[lk] && !data[displayName]) {
+                    normalized[displayName] = data[lk];
+                    delete normalized[lk];
+                }
+            }
+
+            setAllStations(normalized);
+            const current = normalized[selectedStation];
 
             if (current && !isSettingsOpen) {
                 setLocalWarning(current.warning);
@@ -317,8 +329,8 @@ const App = () => {
             }
 
             // Global offline check (based on Antwerpen - our real ESP)
-            if (data["antwerpen"] || data["Antwerpen"]) {
-                setIsOffline(checkIsOffline(data["antwerpen"] || data["Antwerpen"]));
+            if (normalized["Antwerpen"]) {
+                setIsOffline(checkIsOffline(normalized["Antwerpen"]));
             }
 
         } catch (e) {
