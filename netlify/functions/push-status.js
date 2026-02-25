@@ -164,8 +164,11 @@ export default async (req, context) => {
             }
         }
 
+        const isValidReading = distance !== undefined && distance > 0;
+
         const sensorData = {
-            distance,
+            // Only update distance if reading is valid — keep last known good value otherwise
+            distance: isValidReading ? distance : (existingData.distance ?? distance),
             warning: isUiUpdate ? (warning || 30.0) : (hasExistingConfig ? existingData.warning : (warning || 30.0)),
             alarm: isUiUpdate ? (alarm || 15.0) : (hasExistingConfig ? existingData.alarm : (alarm || 15.0)),
             status,
@@ -205,7 +208,12 @@ export default async (req, context) => {
         const historyKey = `history_${stationKey}`;
         let history = await historyStore.get(historyKey, { type: "json" }) || [];
 
-        history.push({ ts: sensorData.lastSeen, val: distance });
+        // Only store valid readings in history (filter out sensor errors: -1, 0, undefined)
+        if (isValidReading) {
+            history.push({ ts: sensorData.lastSeen, val: distance });
+        } else {
+            console.warn(`[History] Skipping invalid distance reading: ${distance}`);
+        }
 
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         history = history.filter(entry => entry.ts > twentyFourHoursAgo);
