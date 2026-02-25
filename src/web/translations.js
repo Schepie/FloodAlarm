@@ -1,6 +1,7 @@
 export const translations = {
     en: {
         title: "Flood Monitor",
+        settings: "Settings",
         live_sync: "LIVE SYNC ACTIVE",
         extreme_risk: "EXTREME RISK",
         high_risk: "HIGH RISK",
@@ -53,6 +54,7 @@ export const translations = {
     },
     nl: {
         title: "Overstromingsmonitor",
+        settings: "Instellingen",
         live_sync: "LIVE SYNC ACTIEF",
         extreme_risk: "EXTREEM RISICO",
         high_risk: "HOOG RISICO",
@@ -105,6 +107,7 @@ export const translations = {
     },
     fr: {
         title: "Moniteur d'Inondation",
+        settings: "Paramètres",
         live_sync: "SYNCHRONISATION LIVE ACTIVE",
         extreme_risk: "RISQUE EXTRÊME",
         high_risk: "RISQUE ÉLEVÉ",
@@ -157,6 +160,7 @@ export const translations = {
     },
     de: {
         title: "Hochwassermonitor",
+        settings: "Einstellungen",
         live_sync: "LIVE-SYNCHRONISIERUNG AKTIV",
         extreme_risk: "EXTREMES RISIKO",
         high_risk: "HOHES RISIKO",

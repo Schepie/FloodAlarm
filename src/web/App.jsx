@@ -13,6 +13,7 @@ import {
     CheckCircle2,
     XCircle,
     Droplets,
+    BellRing,
     CloudSun,
     CloudRain,
     Wind,
@@ -932,107 +933,114 @@ const App = () => {
                             className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]"
                         >
                             <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
+                                    <Settings className="w-5 h-5 text-sky-400" />
+                                    {t('settings')}
+                                </h2>
                                 <button
                                     onClick={() => setIsSettingsOpen(false)}
                                     className="p-2 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
                                 >
                                     <XCircle className="w-5 h-5" />
                                 </button>
-                                <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
-                                    <Settings className="w-5 h-5 text-sky-400" />
-                                    {t('thresholds')}
-                                </h2>
                             </div>
 
                             <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                                <p className="text-xs text-slate-500 mb-6 font-bold uppercase tracking-widest leading-relaxed">
+                                <p className="text-xs text-slate-500 mb-8 font-bold uppercase tracking-widest leading-relaxed">
                                     {t('settings_for')} <span className="text-sky-400">{selectedStation || t('belgium')}</span>.
                                     {t('lower_distance')}
                                 </p>
 
-                                <div className="space-y-6">
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-xs font-black uppercase text-orange-400 tracking-wider">{t('warning_level')}</label>
-                                            <span className="text-sm font-black monospace text-orange-400/70">{localWarning}cm</span>
-                                        </div>
-                                        <input
-                                            type="range" min="1" max="200"
-                                            value={localWarning}
-                                            onChange={(e) => setLocalWarning(e.target.value)}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-xs font-black uppercase text-red-500 tracking-wider">{t('alarm_level')}</label>
-                                            <span className="text-sm font-black monospace text-red-500/70">{localAlarm}cm</span>
-                                        </div>
-                                        <input
-                                            type="range" min="1" max="100"
-                                            value={localAlarm}
-                                            onChange={(e) => setLocalAlarm(e.target.value)}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="mt-8 pt-8 border-t border-slate-800">
-                                    <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
-                                        <Droplets className="w-4 h-4 text-sky-400" />
-                                        {t('intervals')}
-                                    </h3>
-
+                                <div className="space-y-8">
+                                    {/* Thresholds Section */}
                                     <div className="space-y-6">
-                                        {[
-                                            { key: 'sunny', label: 'Sunny Day', color: 'text-amber-400', accent: 'accent-amber-500' },
-                                            { key: 'moderate', label: 'Moderate Rain', color: 'text-sky-400', accent: 'accent-sky-500' },
-                                            { key: 'stormy', label: 'Stormy / Heavy', color: 'text-indigo-400', accent: 'accent-indigo-500' },
-                                            { key: 'waterbomb', label: 'Waterbomb', color: 'text-purple-500', accent: 'accent-purple-500' }
-                                        ].map(item => (
-                                            <div key={item.key} className="space-y-3">
-                                                <div className="flex justify-between items-center">
-                                                    <label className={`text-xs font-black uppercase ${item.color} tracking-wider`}>{t(item.key)}</label>
-                                                    <span className={`text-sm font-black monospace ${item.color}/70`}>{localIntervals[item.key]}m</span>
-                                                </div>
-                                                <input
-                                                    type="range" min="1" max="60"
-                                                    value={localIntervals[item.key]}
-                                                    onChange={(e) => setLocalIntervals(prev => ({ ...prev, [item.key]: parseInt(e.target.value) }))}
-                                                    className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer ${item.accent}`}
-                                                />
+                                        <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                            <BellRing className="w-4 h-4 text-orange-400" />
+                                            {t('thresholds')}
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs font-black uppercase text-orange-400 tracking-wider">{t('warning_level')}</label>
+                                                <span className="text-sm font-black monospace text-orange-400/70">{localWarning}cm</span>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                            <input
+                                                type="range" min="1" max="200"
+                                                value={localWarning}
+                                                onChange={(e) => setLocalWarning(e.target.value)}
+                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                            />
+                                        </div>
 
-                                <div className="mt-8 pt-8 border-t border-slate-800 pb-2">
-                                    <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
-                                        <Waves className="w-4 h-4 text-sky-400" />
-                                        {t('language')}
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {[
-                                            { code: 'en', label: 'English' },
-                                            { code: 'nl', label: 'Nederlands' },
-                                            { code: 'fr', label: 'Français' },
-                                            { code: 'de', label: 'Deutsch' }
-                                        ].map(lang => (
-                                            <button
-                                                key={lang.code}
-                                                onClick={() => {
-                                                    setLanguage(lang.code);
-                                                    localStorage.setItem('flood_lang', lang.code);
-                                                }}
-                                                className={`px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${language === lang.code
-                                                    ? 'bg-sky-500/10 border-sky-500 text-sky-400'
-                                                    : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:border-slate-500'
-                                                    }`}
-                                            >
-                                                {lang.label}
-                                            </button>
-                                        ))}
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs font-black uppercase text-red-500 tracking-wider">{t('alarm_level')}</label>
+                                                <span className="text-sm font-black monospace text-red-500/70">{localAlarm}cm</span>
+                                            </div>
+                                            <input
+                                                type="range" min="1" max="100"
+                                                value={localAlarm}
+                                                onChange={(e) => setLocalAlarm(e.target.value)}
+                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8 pt-8 border-t border-slate-800">
+                                        <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                            <Droplets className="w-4 h-4 text-sky-400" />
+                                            {t('intervals')}
+                                        </h3>
+
+                                        <div className="space-y-6">
+                                            {[
+                                                { key: 'sunny', label: 'Sunny Day', color: 'text-amber-400', accent: 'accent-amber-500' },
+                                                { key: 'moderate', label: 'Moderate Rain', color: 'text-sky-400', accent: 'accent-sky-500' },
+                                                { key: 'stormy', label: 'Stormy / Heavy', color: 'text-indigo-400', accent: 'accent-indigo-500' },
+                                                { key: 'waterbomb', label: 'Waterbomb', color: 'text-purple-500', accent: 'accent-purple-500' }
+                                            ].map(item => (
+                                                <div key={item.key} className="space-y-3">
+                                                    <div className="flex justify-between items-center">
+                                                        <label className={`text-xs font-black uppercase ${item.color} tracking-wider`}>{t(item.key)}</label>
+                                                        <span className={`text-sm font-black monospace ${item.color}/70`}>{localIntervals[item.key]}m</span>
+                                                    </div>
+                                                    <input
+                                                        type="range" min="1" max="60"
+                                                        value={localIntervals[item.key]}
+                                                        onChange={(e) => setLocalIntervals(prev => ({ ...prev, [item.key]: parseInt(e.target.value) }))}
+                                                        className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer ${item.accent}`}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8 pt-8 border-t border-slate-800 pb-2">
+                                        <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                            <Waves className="w-4 h-4 text-sky-400" />
+                                            {t('language')}
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { code: 'en', label: 'English' },
+                                                { code: 'nl', label: 'Nederlands' },
+                                                { code: 'fr', label: 'Français' },
+                                                { code: 'de', label: 'Deutsch' }
+                                            ].map(lang => (
+                                                <button
+                                                    key={lang.code}
+                                                    onClick={() => {
+                                                        setLanguage(lang.code);
+                                                        localStorage.setItem('flood_lang', lang.code);
+                                                    }}
+                                                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${language === lang.code
+                                                        ? 'bg-sky-500/10 border-sky-500 text-sky-400'
+                                                        : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                        }`}
+                                                >
+                                                    {lang.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
