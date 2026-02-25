@@ -76,7 +76,9 @@ export default async (req, context) => {
         if (isUiUpdate) {
             console.log(`[Config] Sync SUCCESS: Master UI updated station ${station} | W:${sensorData.warning} A:${sensorData.alarm}`);
         } else if (hasExistingConfig) {
-            console.log(`[Config] Sync SUCCESS: Enforced Leader values for station ${station} | W:${sensorData.warning} A:${sensorData.alarm}`);
+            console.log(`[Config] Sync SUCCESS: Enforced Leader values for station ${station} | W:${sensorData.warning} A:${sensorData.alarm} (received W:${warning} A:${alarm})`);
+        } else {
+            console.log(`[Config] Sync SUCCESS: Initializing config for new station ${station} | W:${sensorData.warning} A:${sensorData.alarm}`);
         }
 
         // Update the specific station

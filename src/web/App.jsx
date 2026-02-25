@@ -406,6 +406,12 @@ const App = () => {
                     isUiUpdate: true
                 })
             });
+            console.log(`[Cloud] Save Payload:`, {
+                station: selectedStation,
+                warning: parseFloat(localWarning),
+                alarm: parseFloat(localAlarm),
+                isUiUpdate: true
+            });
             if (!res.ok) {
                 const errorText = await res.text();
                 console.error(`Save failed with status ${res.status}: ${errorText}`);
@@ -426,7 +432,7 @@ const App = () => {
     useEffect(() => {
         if (selectedStation) {
             const current = allStations[selectedStation];
-            if (current) {
+            if (current && !isSettingsOpen) {
                 if (current.warning !== undefined) setLocalWarning(current.warning);
                 if (current.alarm !== undefined) setLocalAlarm(current.alarm);
                 if (current.intervals) setLocalIntervals(current.intervals);
@@ -437,7 +443,7 @@ const App = () => {
                 }
             }
         }
-    }, [selectedStation, allStations]); // Sync whenever station changes or data refreshes
+    }, [selectedStation, allStations, isSettingsOpen]); // Added isSettingsOpen
 
     const handleSimPush = async (station, distance, forceWeather) => {
         if (!cloudApiKey.trim()) return;
