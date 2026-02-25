@@ -214,11 +214,17 @@ export default async (req, context) => {
         await historyStore.setJSON(historyKey, history);
 
         // --- Determine next interval ---
+        // Priority: 1) Simulator override (forcedWeatherTier) → 2) ALARM → 3) WARNING → 4) OWM weather tier
         const userIntervals = sensorData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
+        const forcedTier = sensorData.forcedWeatherTier;
         const weatherTier = sensorData.weatherTier;
         let nextInterval;
 
-        if (status === 'ALARM') {
+        if (forcedTier && forcedTier !== 'sunny') {
+            // Simulator is active — its tier wins over everything, even real WARNING/ALARM status
+            nextInterval = userIntervals[forcedTier] * 60;
+            console.log(`[Interval] Forced by simulator: ${forcedTier} → ${nextInterval}s`);
+        } else if (status === 'ALARM') {
             nextInterval = userIntervals.waterbomb * 60;
         } else if (status === 'WARNING') {
             nextInterval = userIntervals.stormy * 60;
