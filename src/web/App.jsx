@@ -689,18 +689,24 @@ const App = () => {
                                                 <span className="text-xs font-black text-slate-200">{status?.weather?.rainProb || '--'}%</span>
                                             </div>
                                             {(() => {
-                                                const iv = status?.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
-                                                const fc = (status?.forecast || '').toLowerCase();
-                                                let mins, tier;
-                                                if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
-                                                    mins = iv.waterbomb; tier = 'waterbomb';
-                                                } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
-                                                    mins = iv.stormy; tier = 'stormy';
-                                                } else if (status?.rainExpected || fc.includes('rain')) {
-                                                    mins = iv.moderate; tier = 'moderate';
+                                                const iv = localIntervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
+                                                // When simulator is active, use simWeather directly — real ESP overwrites cloud forecast continuously
+                                                let tier;
+                                                if (isSimActive) {
+                                                    tier = simWeather; // 'sunny' | 'moderate' | 'stormy' | 'waterbomb'
                                                 } else {
-                                                    mins = iv.sunny; tier = 'sunny';
+                                                    const fc = (status?.forecast || '').toLowerCase();
+                                                    if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
+                                                        tier = 'waterbomb';
+                                                    } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
+                                                        tier = 'stormy';
+                                                    } else if (status?.rainExpected || fc.includes('rain')) {
+                                                        tier = 'moderate';
+                                                    } else {
+                                                        tier = 'sunny';
+                                                    }
                                                 }
+                                                const mins = iv[tier];
                                                 const colors = {
                                                     sunny: 'text-emerald-400',
                                                     moderate: 'text-sky-400',
