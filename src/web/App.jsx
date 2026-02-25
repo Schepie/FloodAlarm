@@ -311,7 +311,7 @@ const App = () => {
             const normalized = { ...data }; // keep Belgium etc.
             for (const displayName of STATION_DISPLAY) {
                 const lk = displayName.toLowerCase();
-                if (data[lk] && !data[displayName]) {
+                if (data[lk]) {
                     normalized[displayName] = data[lk];
                     delete normalized[lk];
                 }
@@ -499,6 +499,7 @@ const App = () => {
                 throw new Error('Push failed');
             }
             fetchStatus();
+            fetchHistory(station);
         } catch (e) {
             console.error("Simulation push failed", e);
         }

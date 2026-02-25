@@ -135,6 +135,12 @@ export default async (req, context) => {
         const weatherStore = getStore("flood_weather");
 
         let stations = await store.get("stations_data", { type: "json" }) || {};
+
+        // Clean up legacy uppercase keys from the store to prevent duplicate state
+        if (stations[station] && station !== stationKey) {
+            delete stations[station];
+        }
+
         const existingData = stations[stationKey] || {};
 
         // Configuration is only updated by UI push, otherwise enforce cloud-leader values

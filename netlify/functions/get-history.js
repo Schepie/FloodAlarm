@@ -12,9 +12,13 @@ export default async (req, context) => {
     }
 
     try {
+        const stationKey = station.toLowerCase().trim();
         const historyStore = getStore("flood_history");
-        const historyKey = `history_${station}`;
-        const history = await historyStore.get(historyKey, { type: "json" }) || [];
+        let history = await historyStore.get(`history_${stationKey}`, { type: "json" });
+        if (!history) {
+            history = await historyStore.get(`history_${station}`, { type: "json" });
+        }
+        history = history || [];
 
         return new Response(JSON.stringify(history), {
             status: 200,
