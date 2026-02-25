@@ -23,7 +23,8 @@ import {
     CloudLightning,
     ShieldAlert,
     ShieldCheck,
-    AlertOctagon
+    AlertOctagon,
+    Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from './translations.js';
@@ -675,6 +676,32 @@ const App = () => {
                                                 <CloudRain className="w-3.5 h-3.5 text-sky-400" />
                                                 <span className="text-xs font-black text-slate-200">{status?.weather?.rainProb || '--'}%</span>
                                             </div>
+                                            {(() => {
+                                                const iv = status?.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
+                                                const fc = (status?.forecast || '').toLowerCase();
+                                                let mins, tier;
+                                                if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
+                                                    mins = iv.waterbomb; tier = 'waterbomb';
+                                                } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
+                                                    mins = iv.stormy; tier = 'stormy';
+                                                } else if (status?.rainExpected || fc.includes('rain')) {
+                                                    mins = iv.moderate; tier = 'moderate';
+                                                } else {
+                                                    mins = iv.sunny; tier = 'sunny';
+                                                }
+                                                const colors = {
+                                                    sunny: 'text-emerald-400',
+                                                    moderate: 'text-sky-400',
+                                                    stormy: 'text-orange-400',
+                                                    waterbomb: 'text-red-400'
+                                                };
+                                                return (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Timer className={`w-3.5 h-3.5 ${colors[tier]}`} />
+                                                        <span className={`text-xs font-black ${colors[tier]}`}>{mins}m</span>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>
