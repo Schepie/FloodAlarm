@@ -48,6 +48,12 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         );
     }
 
+    const dataMax = Math.max(...filteredData.map(d => d.val), warning || 0, alarm || 0);
+    const maxVal = Math.max(100, Math.ceil((dataMax + 10) / 50) * 50);
+    const height = 100;
+    const width = 270;
+    const leftPad = 30;
+
     const timeframeMs = {
         '5m': 5 * 60 * 1000,
         '30m': 30 * 60 * 1000,
