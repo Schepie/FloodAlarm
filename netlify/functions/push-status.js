@@ -156,6 +156,12 @@ export default async (req, context) => {
         } else {
             // Real weather from OWM
             weather = await fetchStationWeather(stationKey, weatherStore);
+            // If a forced tier is stored (from simulator), override the OWM-derived tier for interval calc
+            // so the ESP gets the right interval even on its own push cycle
+            if (existingData.forcedWeatherTier && existingData.forcedWeatherTier !== 'sunny') {
+                weather.tier = existingData.forcedWeatherTier;
+                console.log(`[Weather] Using stored forcedWeatherTier: ${existingData.forcedWeatherTier} (overrides OWM tier)`);
+            }
         }
 
         const sensorData = {
@@ -176,6 +182,11 @@ export default async (req, context) => {
             intervals: isUiUpdate
                 ? (intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 })
                 : (hasExistingConfig ? existingData.intervals : (intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 })),
+            // Persist the simulator's forced tier so real ESP pushes also get the right interval.
+            // Cleared (null) when simulator is set to sunny (deactivated).
+            forcedWeatherTier: isUiUpdate && simWeatherTier
+                ? (simWeatherTier === 'sunny' ? null : simWeatherTier)
+                : existingData.forcedWeatherTier || null,
             lastSeen: new Date().toISOString()
         };
 
