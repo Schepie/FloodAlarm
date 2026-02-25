@@ -29,7 +29,7 @@
 #define WIFI_PASSWORD "gscanwireless"
 
 // Set to true to disable the Provisioning Portal and only use the credentials above
-#define WIFI_FORCE_CONFIG true 
+#define WIFI_FORCE_CONFIG false
 
 
 // Option B: Provisioning Mode (fallback)
