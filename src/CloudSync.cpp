@@ -69,11 +69,11 @@ namespace CloudSync {
                     // Parse updated thresholds if returned inside "data"
                     if (respDoc["data"]["warning"].is<float>()) {
                         config.warningThreshold = respDoc["data"]["warning"];
-                        Serial.printf("[Cloud] Received Warning Level: %.1f cm\n", config.warningThreshold);
+                        Serial.printf("[Cloud] Leader warning definition: %s cm\n", String(config.warningThreshold, 1).c_str());
                     }
                     if (respDoc["data"]["alarm"].is<float>()) {
                         config.alarmThreshold = respDoc["data"]["alarm"];
-                        Serial.printf("[Cloud] Received Alarm Level: %.1f cm\n", config.alarmThreshold);
+                        Serial.printf("[Cloud] Leader alarm definition: %s cm\n", String(config.alarmThreshold, 1).c_str());
                     }
 
                 } else {

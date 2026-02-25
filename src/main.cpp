@@ -51,54 +51,16 @@ void setMeasurementInterval(uint32_t seconds) {
     }
 }
 
-unsigned long lastCloudPush       = 0;
+bool volatile pendingManualSync = false;
 unsigned long lastAutoSimUpdate   = 0;
-bool autoSimEnabled = false;
+bool          autoSimEnabled      = false;
 
 void setAutoSimulation(bool enabled) {
     autoSimEnabled = enabled;
 }
 
 void triggerManualSync() {
-    Serial.println("[Main] Manual Sync Triggered");
-    
-    String statusStr = "NORMAL";
-    float activeWarn = warningThreshold;
-    float activeAlarm = alarmThreshold;
-    if (WeatherSvc::isRainExpected()) {
-        activeWarn *= RAIN_THRESHOLD_FACTOR;
-        activeAlarm *= RAIN_THRESHOLD_FACTOR;
-    }
-    
-    if (currentDistance > 0) {
-        if (currentDistance <= activeAlarm) statusStr = "ALARM";
-        else if (currentDistance <= activeWarn) statusStr = "WARNING";
-    }
-
-    CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, 
-                                        statusStr, WeatherSvc::isRainExpected(), 
-                                        WeatherSvc::getForecastDescription());
-    
-    if (config.success) {
-        if (config.nextIntervalS >= 30) {
-            setMeasurementInterval(config.nextIntervalS);
-        }
-        if (config.warningThreshold > 0 && warningThreshold != config.warningThreshold) {
-            warningThreshold = config.warningThreshold;
-            Serial.printf("[Cloud] Manual update - New Warning: %.1f cm\n", warningThreshold);
-            settings.begin("flood", false);
-            settings.putFloat("warn", warningThreshold);
-            settings.end();
-        }
-        if (config.alarmThreshold > 0 && alarmThreshold != config.alarmThreshold) {
-            alarmThreshold = config.alarmThreshold;
-            Serial.printf("[Cloud] Manual update - New Alarm: %.1f cm\n", alarmThreshold);
-            settings.begin("flood", false);
-            settings.putFloat("alarm", alarmThreshold);
-            settings.end();
-        }
-        Serial.println("[Cloud] Manual Sync Successful");
-    }
+    pendingManualSync = true;
 }
 
 
@@ -264,7 +226,7 @@ void loop() {
             if (config.warningThreshold > 0) {
                 if (warningThreshold != config.warningThreshold) {
                     warningThreshold = config.warningThreshold;
-                    Serial.printf("[Cloud] New Base Warn: %.1f cm\n", warningThreshold);
+                    Serial.printf("[Cloud] Synced Warn from leader: %s cm\n", String(warningThreshold, 1).c_str());
                     settings.begin("flood", false);
                     settings.putFloat("warn", warningThreshold);
                     settings.end();
@@ -273,7 +235,7 @@ void loop() {
             if (config.alarmThreshold > 0) {
                 if (alarmThreshold != config.alarmThreshold) {
                     alarmThreshold = config.alarmThreshold;
-                    Serial.printf("[Cloud] New Base Alarm: %.1f cm\n", alarmThreshold);
+                    Serial.printf("[Cloud] Synced Alarm from leader: %s cm\n", String(alarmThreshold, 1).c_str());
                     settings.begin("flood", false);
                     settings.putFloat("alarm", alarmThreshold);
                     settings.end();
@@ -312,6 +274,47 @@ void loop() {
     if (now - lastWeatherPoll >= WEATHER_POLL_INTERVAL_MS) {
         lastWeatherPoll = now;
         WeatherSvc::update();
+    }
+
+    // ── Manual Sync Check (Main Loop Only) ──────────────────────────────
+    if (pendingManualSync) {
+        pendingManualSync = false;
+        Serial.println("[Main] Processing Manual Sync...");
+        
+        String statusStr = "NORMAL";
+        float activeWarn = warningThreshold;
+        float activeAlarm = alarmThreshold;
+        if (WeatherSvc::isRainExpected()) {
+            activeWarn *= RAIN_THRESHOLD_FACTOR;
+            activeAlarm *= RAIN_THRESHOLD_FACTOR;
+        }
+        if (currentDistance > 0) {
+            if (currentDistance <= activeAlarm) statusStr = "ALARM";
+            else if (currentDistance <= activeWarn) statusStr = "WARNING";
+        }
+
+        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, 
+                                            statusStr, WeatherSvc::isRainExpected(), 
+                                            WeatherSvc::getForecastDescription());
+        
+        if (config.success) {
+            if (config.nextIntervalS >= 30) setMeasurementInterval(config.nextIntervalS);
+            if (config.warningThreshold > 0 && warningThreshold != config.warningThreshold) {
+                warningThreshold = config.warningThreshold;
+                Serial.printf("[Cloud] Manual Sync - Synced Warn from leader: %s cm\n", String(warningThreshold, 1).c_str());
+                settings.begin("flood", false);
+                settings.putFloat("warn", warningThreshold);
+                settings.end();
+            }
+            if (config.alarmThreshold > 0 && alarmThreshold != config.alarmThreshold) {
+                alarmThreshold = config.alarmThreshold;
+                Serial.printf("[Cloud] Manual Sync - Synced Alarm from leader: %s cm\n", String(alarmThreshold, 1).c_str());
+                settings.begin("flood", false);
+                settings.putFloat("alarm", alarmThreshold);
+                settings.end();
+            }
+            Serial.println("[Cloud] Manual Sync Success");
+        }
     }
 
     // ── Heartbeat ──────────────────────────────────────────────────────

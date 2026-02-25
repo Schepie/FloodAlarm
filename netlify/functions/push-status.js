@@ -46,7 +46,7 @@ export default async (req, context) => {
 
     try {
         const body = await req.json();
-        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals } = body;
+        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate } = body;
 
         const store = getStore("flood_data");
 
@@ -54,17 +54,27 @@ export default async (req, context) => {
         let stations = await store.get("stations_data", { type: "json" }) || {};
         const existingData = stations[station] || {};
 
+        // Configuration (Thresholds and Intervals) is only updated if it's a UI push
+        // OR if this is the first time we see this station (existingData is empty)
+        const isFirstSeen = Object.keys(existingData).length === 0;
+
         const sensorData = {
             distance,
-            warning: (warning !== undefined) ? warning : (existingData.warning || 30.0),
-            alarm: (alarm !== undefined) ? alarm : (existingData.alarm || 15.0),
+            warning: (isUiUpdate || isFirstSeen) ? (warning || existingData.warning || 30.0) : (existingData.warning || 30.0),
+            alarm: (isUiUpdate || isFirstSeen) ? (alarm || existingData.alarm || 15.0) : (existingData.alarm || 15.0),
             status,
             forecast,
             rainExpected,
-            river,
-            intervals: intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 },
+            river: river || existingData.river,
+            intervals: (isUiUpdate || isFirstSeen) ? (intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 }) : (existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 }),
             lastSeen: new Date().toISOString()
         };
+
+        if (isUiUpdate) {
+            console.log(`[Config] Update triggered by Master UI for station: ${station}`);
+        } else if (!isFirstSeen) {
+            console.log(`[Config] Enforcing cloud-leader values for station: ${station}`);
+        }
 
         // Update the specific station
         stations[station] = sensorData;

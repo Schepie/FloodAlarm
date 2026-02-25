@@ -390,7 +390,8 @@ const App = () => {
                     status: (status?.distance || 100) <= parseFloat(localAlarm) ? 'ALARM' : ((status?.distance || 100) <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
                     forecast: status?.forecast || "Updated settings",
                     rainExpected: status?.rainExpected || false,
-                    intervals: localIntervals
+                    intervals: localIntervals,
+                    isUiUpdate: true
                 })
             });
             if (!res.ok) {
@@ -409,8 +410,19 @@ const App = () => {
         }
     };
 
+    useEffect(() => {
+        if (selectedStation && allStations[selectedStation]) {
+            const currentStat = allStations[selectedStation];
+            if (currentStat.distance !== undefined && selectedStation !== "Antwerpen") {
+                setSimDistance(currentStat.distance);
+            }
+        }
+    }, [selectedStation]); // Only on station change
+
     const handleSimPush = async (station, distance, forceWeather) => {
         if (!cloudApiKey.trim()) return;
+
+        console.log(`[Sim] Pushing to ${station}: ${distance}cm (Force Weather: ${forceWeather || 'None'})`);
 
         // Safeguard: For Antwerpen (Real), never override distance from simulator
         const finalDistance = (station === "Antwerpen") ? (status?.distance || 100) : distance;
@@ -642,7 +654,6 @@ const App = () => {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3">
-
                                     {isWeatherCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
                                 </div>
                             </button>
@@ -927,14 +938,6 @@ const App = () => {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    {!isSimCompact && (
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); handleSimChange(!isSimActive, simDistance); }}
-                                            className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                        >
-                                            <div className={`bg-white w-3 h-3 rounded-full transition-transform ${isSimActive ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </div>
-                                    )}
                                     {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
                                 </div>
                             </button>
@@ -1008,7 +1011,11 @@ const App = () => {
                                                             max="400"
                                                             disabled={selectedStation === "Antwerpen"}
                                                             value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
-                                                            onChange={(e) => setSimDistance(parseInt(e.target.value))}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value);
+                                                                console.log(`[Slider] New value for ${selectedStation}: ${val}`);
+                                                                setSimDistance(val);
+                                                            }}
                                                             onMouseUp={() => handleSimPush(selectedStation, simDistance)}
                                                             onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
                                                             className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
