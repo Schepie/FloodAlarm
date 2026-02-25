@@ -23,6 +23,7 @@ import {
     AlertOctagon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { translations } from './translations.js';
 
 const App = () => {
     const [allStations, setAllStations] = useState({});
@@ -43,6 +44,9 @@ const App = () => {
         stormy: 5,
         waterbomb: 2
     });
+    const [language, setLanguage] = useState(localStorage.getItem('flood_lang') || 'en');
+
+    const t = (key) => translations[language][key] || key;
 
     const STATIONS = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
 
@@ -233,8 +237,8 @@ const App = () => {
     };
 
     const getStatusBadge = () => {
-        if (isOffline) return <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold border border-red-500/30">DISCONNECTED</span>;
-        if (!status) return <span className="px-3 py-1 bg-sky-500/20 text-sky-400 rounded-full text-xs font-bold border border-sky-500/30">WAITING...</span>;
+        if (isOffline) return <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold border border-red-500/30">{t('disconnected')}</span>;
+        if (!status) return <span className="px-3 py-1 bg-sky-500/20 text-sky-400 rounded-full text-xs font-bold border border-sky-500/30">{t('waiting')}</span>;
 
         const colors = {
             NORMAL: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -247,23 +251,23 @@ const App = () => {
     };
 
     const formatLastSeen = () => {
-        if (!status?.lastSeen) return "Never";
+        if (!status?.lastSeen) return t('never');
         const date = new Date(status.lastSeen);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
 
     const getGlobalRisk = () => {
         const stations = Object.values(allStations);
-        if (stations.length === 0) return { label: 'LOADING...', color: 'text-slate-500', bg: 'bg-slate-500/10', icon: ShieldAlert };
+        if (stations.length === 0) return { label: t('loading'), color: 'text-slate-500', bg: 'bg-slate-500/10', icon: ShieldAlert };
 
         const hasAlarm = stations.some(s => s.status === 'ALARM');
         const hasWarning = stations.some(s => s.status === 'WARNING');
         const maxRainProb = Math.max(...stations.map(s => s.weather?.rainProb || 0));
 
-        if (hasAlarm && maxRainProb > 80) return { label: 'EXTREME RISK', color: 'text-red-500', bg: 'bg-red-500/20', icon: AlertOctagon, pulse: true };
-        if (hasAlarm || (hasWarning && maxRainProb > 70)) return { label: 'HIGH RISK', color: 'text-orange-500', bg: 'bg-orange-500/20', icon: AlertTriangle, pulse: true };
-        if (hasWarning || maxRainProb > 40) return { label: 'ELEVATED RISK', color: 'text-amber-500', bg: 'bg-amber-500/20', icon: ShieldAlert, pulse: false };
-        return { label: 'LOW RISK', color: 'text-emerald-500', bg: 'bg-emerald-500/20', icon: ShieldCheck, pulse: false };
+        if (hasAlarm && maxRainProb > 80) return { label: t('extreme_risk'), color: 'text-red-500', bg: 'bg-red-500/20', icon: AlertOctagon, pulse: true };
+        if (hasAlarm || (hasWarning && maxRainProb > 70)) return { label: t('high_risk'), color: 'text-orange-500', bg: 'bg-orange-500/20', icon: AlertTriangle, pulse: true };
+        if (hasWarning || maxRainProb > 40) return { label: t('elevated_risk'), color: 'text-amber-500', bg: 'bg-amber-500/20', icon: ShieldAlert, pulse: false };
+        return { label: t('low_risk'), color: 'text-emerald-500', bg: 'bg-emerald-500/20', icon: ShieldCheck, pulse: false };
     };
 
     const risk = getGlobalRisk();
@@ -274,16 +278,16 @@ const App = () => {
         const hasWarning = stations.some(s => s.status === 'WARNING');
         const maxRainProb = Math.max(...stations.map(s => s.weather?.rainProb || 0));
 
-        if (risk.label.includes('EXTREME')) {
-            return "ALARM level reached at one or more stations combined with extreme rain forecast (>80%). Immediate action required.";
+        if (risk.label === t('extreme_risk')) {
+            return t('extreme_risk_desc');
         }
-        if (risk.label.includes('HIGH')) {
-            return `Severe situation: ${hasAlarm ? 'ALARM level' : 'WARNING level'} active with ${maxRainProb}% rain probability. Waters are rising significantly.`;
+        if (risk.label === t('high_risk')) {
+            return `${t('high_risk_desc')} (${maxRainProb}% ${t('rain_prob')})`;
         }
-        if (risk.label.includes('ELEVATED')) {
-            return `Precautionary state: ${hasWarning ? 'WARNING level' : 'NORMAL level'} with ${maxRainProb}% rain probability. Monitoring required for potential changes.`;
+        if (risk.label === t('elevated_risk')) {
+            return `${t('elevated_risk_desc')} (${maxRainProb}% ${t('rain_prob')})`;
         }
-        return "Stable conditions: All stations are reporting safe water levels and no significant rain is expected.";
+        return t('stable_conditions');
     };
 
     return (
@@ -301,9 +305,9 @@ const App = () => {
                         <Waves className="w-6 h-6 text-sky-400" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight">Flood Monitor</h1>
+                        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold flex items-center gap-1">
-                            <Activity className="w-2.5 h-2.5" /> LIVE SYNC ACTIVE
+                            <Activity className="w-2.5 h-2.5" /> {t('live_sync')}
                         </p>
                     </div>
                 </div>
@@ -334,7 +338,7 @@ const App = () => {
                         <div className="p-2 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">
                             <Droplets className="w-4 h-4 text-sky-400" />
                         </div>
-                        <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">SCHELDE</span>
+                        <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">{t('schelde')}</span>
                     </div>
                     {expandedRivers.SCHELDE ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
                 </button>
@@ -393,11 +397,11 @@ const App = () => {
                                                         ? 'text-red-500 animate-glow-red'
                                                         : 'text-slate-500'
                                                         }`}>
-                                                        {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'NEVER'}
+                                                        {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
                                                     </span>
                                                 </div>
                                                 {s?.isSimulated && (
-                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">Sim</span>
+                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
                                                 )}
                                             </div>
                                         </button>
@@ -424,7 +428,7 @@ const App = () => {
                             <TrendingUp className="w-4 h-4 text-[#0f172a]" />
                         </div>
                         <div>
-                            <p className="text-sm font-semibold">Rain Expected</p>
+                            <p className="text-sm font-semibold">{t('rain_expected')}</p>
                             <p className="text-xs text-sky-400/80">{status.forecast}</p>
                         </div>
                     </motion.div>
@@ -439,7 +443,7 @@ const App = () => {
                             <Activity className="w-4 h-4 text-purple-400" />
                         </div>
                         <span className="text-sm font-bold uppercase tracking-wider text-slate-300">
-                            {selectedStation === "Antwerpen" ? "Real ESP Control" : `${selectedStation} Sim`}
+                            {selectedStation === "Antwerpen" ? t('real_esp_control') : `${selectedStation} ${t('sim_control')}`}
                         </span>
                     </div>
                     <div
@@ -452,7 +456,7 @@ const App = () => {
 
                 <div className={`space-y-4 transition-opacity duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                     <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase">
-                        <span>Virtual Distance</span>
+                        <span>{t('virtual_distance')}</span>
                         <span className="text-purple-400">{simDistance}cm</span>
                     </div>
                     <input
@@ -469,8 +473,8 @@ const App = () => {
                     />
                     <p className="text-[10px] text-slate-500 leading-tight">
                         {selectedStation === "Antwerpen"
-                            ? "Warning: Moving this slider will override real ESP data in the cloud."
-                            : "Simulating water level for this upstream station."}
+                            ? t('sim_warning')
+                            : t('sim_upstream')}
                     </p>
                 </div>
             </div>
@@ -486,12 +490,12 @@ const App = () => {
                         <div className="p-2 bg-amber-500/10 rounded-lg">
                             <CloudSun className="w-4 h-4 text-amber-400" />
                         </div>
-                        <span className="text-sm font-black uppercase tracking-wider text-slate-300">Weather & Forecast</span>
+                        <span className="text-sm font-black uppercase tracking-wider text-slate-300">{t('weather_forecast')}</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 rounded-full border border-slate-700/50">
                         <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            {selectedStation || "Belgium"}
+                            {selectedStation || t('belgium')}
                         </span>
                     </div>
                 </div>
@@ -502,7 +506,7 @@ const App = () => {
                             <Thermometer className="w-5 h-5 text-orange-400" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase">Temp</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">{t('temp')}</p>
                             <p className="text-xl font-black">{status?.weather?.temp || '--'}°<span className="text-xs text-slate-500 ml-1">C</span></p>
                         </div>
                     </div>
@@ -511,14 +515,14 @@ const App = () => {
                             <CloudRain className="w-5 h-5 text-sky-400" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase">Rain</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">{t('rain')}</p>
                             <p className="text-xl font-black">{status?.weather?.rainProb || '--'}%</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-3">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">3-Day Outlook</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">{t('three_day_outlook')}</p>
                     <div className="grid grid-cols-3 gap-3">
                         {status?.weather?.daily.map((day, i) => (
                             <div key={i} className="bg-slate-900/30 p-3 rounded-2xl border border-slate-800/50 flex flex-col items-center gap-2">
@@ -528,7 +532,7 @@ const App = () => {
                                         <Cloud className="w-5 h-5 text-slate-400" />}
                                 <span className="text-xs font-bold">{day.temp}°</span>
                                 {day.rain > 50 && (
-                                    <span className="text-[8px] font-black text-sky-500 uppercase px-1.5 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/20">Heavy Rain</span>
+                                    <span className="text-[8px] font-black text-sky-500 uppercase px-1.5 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/20">{t('heavy_rain')}</span>
                                 )}
                             </div>
                         ))}
@@ -574,12 +578,12 @@ const App = () => {
 
                                 <div className="w-full space-y-3">
                                     <div className="flex justify-between items-center px-4 py-3 bg-white/5 rounded-2xl border border-white/5">
-                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stations</span>
-                                        <span className="text-sm font-black text-slate-100">5 Monitored</span>
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('monitored_stations')}</span>
+                                        <span className="text-sm font-black text-slate-100">{t('stations_monitored')}</span>
                                     </div>
                                     <div className="flex justify-between items-center px-4 py-3 bg-white/5 rounded-2xl border border-white/5">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aggregated Rain</span>
-                                        <span className="text-sm font-black text-slate-100">{Math.max(...Object.values(allStations).map(s => s.weather?.rainProb || 0))}% Max</span>
+                                        <span className="text-sm font-black text-slate-100">{Math.max(...Object.values(allStations).map(s => s.weather?.rainProb || 0))}% {t('max_rain')}</span>
                                     </div>
                                 </div>
 
@@ -587,7 +591,7 @@ const App = () => {
                                     onClick={() => setIsRiskModalOpen(false)}
                                     className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10`}
                                 >
-                                    Dismiss
+                                    {t('dismiss')}
                                 </button>
                             </div>
                         </motion.div>
@@ -613,7 +617,7 @@ const App = () => {
                             <div className="flex items-center justify-between mb-8">
                                 <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
                                     <Settings className="w-5 h-5 text-sky-400" />
-                                    Thresholds
+                                    {t('thresholds')}
                                 </h2>
                                 <button
                                     onClick={() => setIsSettingsOpen(false)}
@@ -624,14 +628,14 @@ const App = () => {
                             </div>
 
                             <p className="text-xs text-slate-500 mb-6 font-bold uppercase tracking-widest leading-relaxed">
-                                Settings for <span className="text-sky-400">{selectedStation}</span>.
-                                Lower distance means higher water level.
+                                {t('settings_for')} <span className="text-sky-400">{selectedStation || t('belgium')}</span>.
+                                {t('lower_distance')}
                             </p>
 
                             <div className="space-y-6">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-xs font-black uppercase text-orange-400 tracking-wider">Warning Level</label>
+                                        <label className="text-xs font-black uppercase text-orange-400 tracking-wider">{t('warning_level')}</label>
                                         <span className="text-sm font-black monospace text-orange-400/70">{localWarning}cm</span>
                                     </div>
                                     <input
@@ -644,7 +648,7 @@ const App = () => {
 
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-xs font-black uppercase text-red-500 tracking-wider">Alarm Level</label>
+                                        <label className="text-xs font-black uppercase text-red-500 tracking-wider">{t('alarm_level')}</label>
                                         <span className="text-sm font-black monospace text-red-500/70">{localAlarm}cm</span>
                                     </div>
                                     <input
@@ -659,7 +663,7 @@ const App = () => {
                             <div className="mt-8 pt-8 border-t border-slate-800">
                                 <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
                                     <Droplets className="w-4 h-4 text-sky-400" />
-                                    Measuring Intervals (min)
+                                    {t('intervals')}
                                 </h3>
 
                                 <div className="space-y-6">
@@ -671,7 +675,7 @@ const App = () => {
                                     ].map(item => (
                                         <div key={item.key} className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <label className={`text-xs font-black uppercase ${item.color} tracking-wider`}>{item.label}</label>
+                                                <label className={`text-xs font-black uppercase ${item.color} tracking-wider`}>{t(item.key)}</label>
                                                 <span className={`text-sm font-black monospace ${item.color}/70`}>{localIntervals[item.key]}m</span>
                                             </div>
                                             <input
@@ -685,11 +689,40 @@ const App = () => {
                                 </div>
                             </div>
 
+                            <div className="mt-8 pt-8 border-t border-slate-800">
+                                <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                    <Waves className="w-4 h-4 text-sky-400" />
+                                    {t('language')}
+                                </h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { code: 'en', label: 'English' },
+                                        { code: 'nl', label: 'Nederlands' },
+                                        { code: 'fr', label: 'Français' },
+                                        { code: 'de', label: 'Deutsch' }
+                                    ].map(lang => (
+                                        <button
+                                            key={lang.code}
+                                            onClick={() => {
+                                                setLanguage(lang.code);
+                                                localStorage.setItem('flood_lang', lang.code);
+                                            }}
+                                            className={`px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${language === lang.code
+                                                ? 'bg-sky-500/10 border-sky-500 text-sky-400'
+                                                : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:border-slate-500'
+                                                }`}
+                                        >
+                                            {lang.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <button
                                 onClick={handleSaveSettings}
                                 className="w-full mt-10 bg-sky-500 hover:bg-sky-400 text-[#0f172a] py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg shadow-sky-500/10"
                             >
-                                SAVE CONFIGURATION
+                                {t('save')}
                             </button>
                         </motion.div>
                     </motion.div>
