@@ -48,20 +48,27 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
         );
     }
 
-    const dataMax = Math.max(...filteredData.map(d => d.val), warning || 0, alarm || 0);
-    const maxVal = Math.max(100, Math.ceil((dataMax + 10) / 50) * 50); // Dynamic max, min 100, steps of 50
-    const height = 100;
-    const width = 270; // Reduced to fit labels on the left
-    const leftPad = 30;
+    const timeframeMs = {
+        '5m': 5 * 60 * 1000,
+        '30m': 30 * 60 * 1000,
+        '3h': 3 * 60 * 60 * 1000,
+        '8h': 8 * 60 * 60 * 1000,
+        '24h': 24 * 60 * 60 * 1000
+    }[timeframe] || (24 * 60 * 60 * 1000);
 
-    const points = filteredData.map((d, i) => {
-        const x = leftPad + (i / (filteredData.length - 1)) * width;
-        // Invert: lower distance (more water) = lower Y (higher on graph)
+    const points = filteredData.map((d) => {
+        const timeOffset = now.getTime() - new Date(d.ts).getTime();
+        const x = leftPad + width - (Math.min(timeOffset, timeframeMs) / timeframeMs) * width;
         const y = (Math.min(d.val, maxVal) / maxVal) * height;
-        return `${x},${y}`;
-    }).join(' ');
+        return { x, y };
+    })
+        .sort((a, b) => a.x - b.x)
+        .map(p => `${p.x},${p.y}`)
+        .join(' ');
 
-    const areaPath = `M ${leftPad},${height} ${points.split(' ').map((p, i) => (i === 0 ? `L ${p}` : p)).join(' ')} L ${leftPad + width},${height} Z`;
+    const areaPath = filteredData.length >= 2
+        ? `M ${leftPad + width},${height} L ${points.split(' ')[0].split(',')[0]},${height} L ${points} L ${leftPad + width},${height} Z`
+        : '';
 
     const warningY = (warning / maxVal) * height;
     const alarmY = (alarm / maxVal) * height;
@@ -73,48 +80,44 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const xLabels = [];
     if (filteredData.length >= 2) {
-        const startTime = filteredData[0].ts;
-        const endTime = filteredData[filteredData.length - 1].ts;
-        const durationMin = (endTime - startTime) / 1000 / 60;
+        const windowStart = now.getTime() - timeframeMs;
+        const windowEnd = now.getTime();
+        const durationMin = timeframeMs / 1000 / 60;
 
-        // Determine label frequency based on timeframe
-        let intervalMin = 60; // Default 1 hour
-        if (timeframe === '5m') intervalMin = 1;
-        else if (timeframe === '30m') intervalMin = 5;
-        else if (timeframe === '3h') intervalMin = 30;
-        else if (timeframe === '8h') intervalMin = 60;
-        else intervalMin = 240; // 24h -> every 4 hours
+        // Determine label frequency based on the timeframe window
+        let intervalMin = 60;
+        if (durationMin <= 10) intervalMin = 1;
+        else if (durationMin <= 60) intervalMin = 10;
+        else if (durationMin <= 240) intervalMin = 60;
+        else if (durationMin <= 600) intervalMin = 120; // 2h
+        else intervalMin = 240; // 4h
 
-        // Add start label
-        xLabels.push({ x: leftPad, label: formatTime(startTime) });
+        // Add start label (left edge of window)
+        xLabels.push({ x: leftPad, label: formatTime(windowStart) });
 
-        // Add intermediate labels based on interval
-        if (durationMin > intervalMin) {
-            const startD = new Date(startTime);
-            // Align to next interval
-            const nextMark = new Date(startD);
-            if (intervalMin >= 60) {
-                nextMark.setHours(nextMark.getHours() + 1, 0, 0, 0);
-            } else {
-                nextMark.setMinutes(Math.ceil(nextMark.getMinutes() / intervalMin) * intervalMin, 0, 0);
-            }
-
-            let currentMark = nextMark.getTime();
-            while (currentMark < endTime - (intervalMin * 60 * 1000 * 0.5)) { // Don't crowd the end
-                const ratio = (currentMark - startTime) / (endTime - startTime);
-                xLabels.push({
-                    x: leftPad + ratio * width,
-                    label: formatTime(currentMark)
-                });
-                currentMark += intervalMin * 60 * 1000;
-            }
+        // Add intermediate marks
+        const startD = new Date(windowStart);
+        const nextMark = new Date(startD);
+        if (intervalMin >= 60) {
+            nextMark.setHours(nextMark.getHours() + 1, 0, 0, 0);
+        } else {
+            nextMark.setMinutes(Math.ceil((nextMark.getMinutes() + 1) / intervalMin) * intervalMin, 0, 0);
         }
 
-        // Add end label if not too close to last label
-        const lastLabelX = xLabels[xLabels.length - 1].x;
-        if (leftPad + width - lastLabelX > 40) {
-            xLabels.push({ x: leftPad + width, label: formatTime(endTime) });
+        let currentMark = nextMark.getTime();
+        let safety = 0;
+        while (currentMark < windowEnd - (intervalMin * 60 * 1000 * 0.7) && safety < 50) {
+            const ratio = (currentMark - windowStart) / timeframeMs;
+            xLabels.push({
+                x: leftPad + ratio * width,
+                label: formatTime(currentMark)
+            });
+            currentMark += intervalMin * 60 * 1000;
+            safety++;
         }
+
+        // Add end label (now)
+        xLabels.push({ x: leftPad + width, label: formatTime(windowEnd) });
     }
 
     // Generate dynamic Y-axis ticks
