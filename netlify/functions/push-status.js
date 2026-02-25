@@ -1,3 +1,5 @@
+import { getStore } from "@netlify/blobs";
+
 export default async (req, context) => {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
