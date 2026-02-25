@@ -946,11 +946,6 @@ const App = () => {
                             </div>
 
                             <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                                <p className="text-xs text-slate-500 mb-8 font-bold uppercase tracking-widest leading-relaxed">
-                                    {t('settings_for')} <span className="text-sky-400">{selectedStation || t('belgium')}</span>.
-                                    {t('lower_distance')}
-                                </p>
-
                                 <div className="space-y-8">
                                     {/* Thresholds Section */}
                                     <div className="space-y-6">
