@@ -237,6 +237,7 @@ void loop() {
                     settings.end();
                 }
             }
+            Serial.println("[Cloud] Sync successful");
 
         }
 

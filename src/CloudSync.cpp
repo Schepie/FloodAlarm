@@ -63,15 +63,19 @@ namespace CloudSync {
                     
                     if (respDoc["nextInterval"].is<int32_t>()) {
                         config.nextIntervalS = respDoc["nextInterval"];
+                        Serial.printf("[Cloud] Received Interval: %d s\n", config.nextIntervalS);
                     }
                     
                     // Parse updated thresholds if returned inside "data"
                     if (respDoc["data"]["warning"].is<float>()) {
                         config.warningThreshold = respDoc["data"]["warning"];
+                        Serial.printf("[Cloud] Received Warning Level: %.1f cm\n", config.warningThreshold);
                     }
                     if (respDoc["data"]["alarm"].is<float>()) {
                         config.alarmThreshold = respDoc["data"]["alarm"];
+                        Serial.printf("[Cloud] Received Alarm Level: %.1f cm\n", config.alarmThreshold);
                     }
+
                 } else {
                     Serial.println("[Cloud] Response: " + response);
                 }
