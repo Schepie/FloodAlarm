@@ -113,7 +113,8 @@ export default async (req, context) => {
         // --- End History Logic ---
 
         // Determine next measurement interval (in seconds)
-        const userIntervals = intervals || (stations[station] && stations[station].intervals) || {
+        // Priority: body intervals > stored intervals for this station > hardcoded defaults
+        const userIntervals = sensorData.intervals || {
             sunny: 15,
             moderate: 10,
             stormy: 5,
