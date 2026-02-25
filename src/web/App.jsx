@@ -50,7 +50,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 
     const dataMax = Math.max(...filteredData.map(d => d.val), warning || 0, alarm || 0);
     const maxVal = Math.max(100, Math.ceil((dataMax + 10) / 50) * 50);
-    const height = 120;
+    const height = 160;
     const width = 600;
     const leftPad = 40;
 
@@ -781,7 +781,7 @@ const App = () => {
                                                                     })()}
 
                                                                     {/* Graph Area */}
-                                                                    <div className="h-32 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
+                                                                    <div className="h-48 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
                                                                         <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
                                                                             {stationHistory.length} pts
                                                                         </div>
@@ -800,7 +800,7 @@ const App = () => {
                                                                     </div>
 
                                                                     {/* Timeframe Selector (Now below graph) */}
-                                                                    <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2 scrollbar-hide">
+                                                                    <div className="flex items-center justify-end gap-1 overflow-x-auto pb-2 scrollbar-hide">
                                                                         {['1h', '3h', '8h', '24h'].map(tf => (
                                                                             <button
                                                                                 key={tf}
