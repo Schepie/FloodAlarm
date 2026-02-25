@@ -55,25 +55,28 @@ export default async (req, context) => {
         const existingData = stations[station] || {};
 
         // Configuration (Thresholds and Intervals) is only updated if it's a UI push
-        // OR if this is the first time we see this station (existingData is empty)
-        const isFirstSeen = Object.keys(existingData).length === 0;
+        // OR if this is the first time we see this station (no data at all)
+        const hasExistingConfig = existingData.warning !== undefined && existingData.alarm !== undefined;
 
         const sensorData = {
             distance,
-            warning: (isUiUpdate || isFirstSeen) ? (warning || existingData.warning || 30.0) : (existingData.warning || 30.0),
-            alarm: (isUiUpdate || isFirstSeen) ? (alarm || existingData.alarm || 15.0) : (existingData.alarm || 15.0),
+            // IF UI update: use body values. 
+            // IF ESP push & hasConfig: use existing cloud leader values.
+            // ELSE: fallback to body or defaults.
+            warning: (isUiUpdate) ? (warning || 30.0) : (hasExistingConfig ? existingData.warning : (warning || 30.0)),
+            alarm: (isUiUpdate) ? (alarm || 15.0) : (hasExistingConfig ? existingData.alarm : (alarm || 15.0)),
             status,
             forecast,
             rainExpected,
-            river: river || existingData.river,
-            intervals: (isUiUpdate || isFirstSeen) ? (intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 }) : (existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 }),
+            river: river || existingData.river || "Schelde",
+            intervals: (isUiUpdate) ? (intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 }) : (hasExistingConfig ? existingData.intervals : (intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 })),
             lastSeen: new Date().toISOString()
         };
 
         if (isUiUpdate) {
-            console.log(`[Config] Update triggered by Master UI for station: ${station}`);
-        } else if (!isFirstSeen) {
-            console.log(`[Config] Enforcing cloud-leader values for station: ${station}`);
+            console.log(`[Config] Sync SUCCESS: Master UI updated station ${station} | W:${sensorData.warning} A:${sensorData.alarm}`);
+        } else if (hasExistingConfig) {
+            console.log(`[Config] Sync SUCCESS: Enforced Leader values for station ${station} | W:${sensorData.warning} A:${sensorData.alarm}`);
         }
 
         // Update the specific station

@@ -373,13 +373,25 @@ const App = () => {
             return;
         }
 
+        let cleanKey = cloudApiKey.trim();
+        // If user accidentally pasted the whole #define line from Config.h
+        if (cleanKey.includes('#define') || cleanKey.includes('"')) {
+            const match = cleanKey.match(/"([^"]+)"/);
+            if (match) cleanKey = match[1];
+            else {
+                // If no quotes, just split and take last part if it looks like #define
+                const parts = cleanKey.split(/\s+/);
+                if (parts.length > 2 && parts[0] === '#define') cleanKey = parts[2];
+            }
+        }
+
         try {
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
-                    'x-api-key': cloudApiKey.trim()
+                    'Authorization': `Bearer ${cleanKey}`,
+                    'x-api-key': cleanKey
                 },
 
                 body: JSON.stringify({
@@ -401,7 +413,8 @@ const App = () => {
                 throw new Error('Save failed');
             }
 
-            localStorage.setItem('flood_api_key', cloudApiKey);
+            localStorage.setItem('flood_api_key', cleanKey);
+            setCloudApiKey(cleanKey);
             setIsSettingsOpen(false);
             fetchStatus();
 
@@ -411,13 +424,20 @@ const App = () => {
     };
 
     useEffect(() => {
-        if (selectedStation && allStations[selectedStation]) {
-            const currentStat = allStations[selectedStation];
-            if (currentStat.distance !== undefined && selectedStation !== "Antwerpen") {
-                setSimDistance(currentStat.distance);
+        if (selectedStation) {
+            const current = allStations[selectedStation];
+            if (current) {
+                if (current.warning !== undefined) setLocalWarning(current.warning);
+                if (current.alarm !== undefined) setLocalAlarm(current.alarm);
+                if (current.intervals) setLocalIntervals(current.intervals);
+
+                // Also sync simulator distance for virtual stations
+                if (current.distance !== undefined && selectedStation !== "Antwerpen") {
+                    setSimDistance(current.distance);
+                }
             }
         }
-    }, [selectedStation]); // Only on station change
+    }, [selectedStation, allStations]); // Sync whenever station changes or data refreshes
 
     const handleSimPush = async (station, distance, forceWeather) => {
         if (!cloudApiKey.trim()) return;
