@@ -5,10 +5,15 @@ export default async (req, context) => {
         const store = getStore("flood_data");
         const storedStations = await store.get("stations_data", { type: "json" }) || {};
 
-        // Merge stored data with defaults (simulated)
-        const allStations = { ...storedStations };
+        // Merge stored data with defaults (simulated), ignoring invalid keys
+        const allStations = {};
+        for (const [key, value] of Object.entries(storedStations)) {
+            if (key !== "null" && key !== "undefined" && key !== "" && key !== "belgium") {
+                allStations[key] = value;
+            }
+        }
 
-        // Add weather to all stations (dynamic for simulated feel)
+        // Add weather to all valid stations (dynamic for simulated feel)
         for (const name in allStations) {
             allStations[name].weather = {
                 temp: 10 + Math.floor(Math.random() * 8),
