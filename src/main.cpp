@@ -291,9 +291,7 @@ void loop() {
             else if (currentDistance <= activeWarn) statusStr = "WARNING";
         }
 
-        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, 
-                                            statusStr, WeatherSvc::isRainExpected(), 
-                                            WeatherSvc::getForecastDescription());
+        CloudSync::CloudConfig config = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, statusStr);
         
         if (config.success) {
             if (config.nextIntervalS >= 30) setMeasurementInterval(config.nextIntervalS);
