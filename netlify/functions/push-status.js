@@ -17,7 +17,8 @@ const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min cache to avoid OWM quota 
  */
 async function fetchStationWeather(stationKey, weatherStore) {
     const cacheKey = `weather_${stationKey}`;
-    const cached = await weatherStore.get(cacheKey, { type: "json" });
+    let cached = null;
+    try { cached = await weatherStore.get(cacheKey, { type: "json" }); } catch (_) { }
 
     if (cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < WEATHER_CACHE_TTL_MS) {
         console.log(`[Weather] Serving cached weather for ${stationKey}`);
@@ -27,57 +28,56 @@ async function fetchStationWeather(stationKey, weatherStore) {
     const coords = STATION_COORDS[stationKey];
     if (!coords) {
         console.log(`[Weather] No coords for ${stationKey}, using defaults`);
-        return { forecast: "Unknown", rainExpected: false, temp: null, rainProb: null };
+        return cached || { forecast: "Unknown", rainExpected: false, tier: "sunny", temp: null, rainProb: null };
     }
 
     const OWM_KEY = process.env.OWM_API_KEY;
     if (!OWM_KEY) {
         console.warn("[Weather] OWM_API_KEY not set in Netlify env vars");
-        return { forecast: "No API key", rainExpected: false, temp: null, rainProb: null };
+        return cached || { forecast: "No API key", rainExpected: false, tier: "sunny", temp: null, rainProb: null };
     }
+
+    // Hard 3s timeout so we never block the ESP's HTTP client (which times out ~5s)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
 
     try {
         const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${coords.lat}&lon=${coords.lon}&cnt=2&appid=${OWM_KEY}&units=metric`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+
         if (!res.ok) {
-            console.warn(`[Weather] OWM HTTP ${res.status} for ${stationKey}`);
-            return { forecast: `OWM error ${res.status}`, rainExpected: false, temp: null, rainProb: null };
+            console.warn(`[Weather] OWM HTTP ${res.status}`);
+            return cached || { forecast: `OWM ${res.status}`, rainExpected: false, tier: "sunny", temp: null, rainProb: null };
         }
         const data = await res.json();
         const entry = data.list?.[0];
-        if (!entry) return { forecast: "No data", rainExpected: false, temp: null, rainProb: null };
+        if (!entry) return cached || { forecast: "No data", rainExpected: false, tier: "sunny", temp: null, rainProb: null };
 
         const mainWeather = entry.weather?.[0]?.main || "Unknown";
         const description = entry.weather?.[0]?.description || mainWeather;
         const rainExpected = ["Rain", "Thunderstorm", "Drizzle", "Squall"].includes(mainWeather);
         const temp = Math.round(entry.main?.temp ?? null);
-        const rainProb = Math.round((entry.pop ?? 0) * 100); // probability of precipitation 0-100%
+        const rainProb = Math.round((entry.pop ?? 0) * 100);
         const windSpeed = Math.round(entry.wind?.speed ?? 0);
 
-        // Map OWM description to our tier
         let tier = "sunny";
         if (mainWeather === "Thunderstorm") tier = "waterbomb";
         else if (mainWeather === "Rain" && rainProb > 70) tier = "stormy";
         else if (rainExpected) tier = "moderate";
 
-        const weatherResult = {
-            forecast: description,
-            rainExpected,
-            tier,
-            temp,
-            rainProb,
-            windSpeed,
-            fetchedAt: Date.now()
-        };
-
-        await weatherStore.setJSON(cacheKey, weatherResult);
-        console.log(`[Weather] Fetched for ${stationKey}: ${description} (tier: ${tier}, rain: ${rainExpected})`);
+        const weatherResult = { forecast: description, rainExpected, tier, temp, rainProb, windSpeed, fetchedAt: Date.now() };
+        try { await weatherStore.setJSON(cacheKey, weatherResult); } catch (_) { }
+        console.log(`[Weather] Fetched for ${stationKey}: ${description} (tier: ${tier})`);
         return weatherResult;
     } catch (err) {
-        console.error(`[Weather] Fetch error for ${stationKey}: ${err.message}`);
-        return { forecast: "Fetch error", rainExpected: false, temp: null, rainProb: null };
+        clearTimeout(timer);
+        const reason = err.name === "AbortError" ? "timeout (3s)" : err.message;
+        console.warn(`[Weather] OWM skipped for ${stationKey}: ${reason} — using ${cached ? "stale cache" : "defaults"}`);
+        return cached || { forecast: "Unavailable", rainExpected: false, tier: "sunny", temp: null, rainProb: null };
     }
 }
+
 
 export default async (req, context) => {
     const corsHeaders = {
