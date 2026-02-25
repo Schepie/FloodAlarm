@@ -36,11 +36,34 @@ export default async (req, context) => {
         // Update the specific station
         stations[station] = sensorData;
 
+        // --- History Logic ---
+        const historyStore = getStore("flood_history");
+        const historyKey = `history_${station}`;
+        let history = await historyStore.get(historyKey, { type: "json" }) || [];
+
+        // Add new entry
+        history.push({ ts: sensorData.lastSeen, val: distance });
+
+        // Filter to keep only last 24 hours
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        history = history.filter(entry => entry.ts > twentyFourHoursAgo);
+
+        // Limit to reasonable number of points (e.g., 200 points to keep blob small)
+        // If we push every 15s, 24h = 5760 points. Let's keep more but maybe downsample later if needed.
+        // For now, let's just keep the last 200 points or so for the graph.
+        // Actually, if we want 24h trend, we might need more. Let's cap at 500 for now.
+        if (history.length > 500) {
+            history = history.slice(-500);
+        }
+
+        await historyStore.setJSON(historyKey, history);
+        // --- End History Logic ---
+
         // Also keep "latest_status" compatible for now
         await store.setJSON("latest_status", sensorData);
         await store.setJSON("stations_data", stations);
 
-        return new Response(JSON.stringify({ success: true, updated: station, data: sensorData }), {
+        return new Response(JSON.stringify({ success: true, updated: station, data: sensorData, historyCount: history.length }), {
             status: 200,
             headers: { "Content-Type": "application/json" }
         });

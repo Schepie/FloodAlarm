@@ -25,6 +25,93 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from './translations.js';
 
+const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
+    // Filter data based on timeframe
+    const now = new Date();
+    const filteredData = Array.isArray(data) ? data.filter(entry => {
+        const entryDate = new Date(entry.ts);
+        const diffMin = (now - entryDate) / 1000 / 60;
+        switch (timeframe) {
+            case '5m': return diffMin <= 5;
+            case '30m': return diffMin <= 30;
+            case '3h': return diffMin <= 180;
+            case '8h': return diffMin <= 480;
+            default: return true; // 24h
+        }
+    }) : [];
+
+    if (filteredData.length < 2) {
+        return (
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                <span className="animate-pulse">WAITING...</span>
+            </div>
+        );
+    }
+
+    const maxVal = 100; // Reference max distance
+    const height = 100;
+    const width = 300;
+
+    const points = filteredData.map((d, i) => {
+        const x = (i / (filteredData.length - 1)) * width;
+        const y = height - (Math.min(d.val, maxVal) / maxVal) * height;
+        return `${x},${y}`;
+    }).join(' ');
+
+    const areaPath = `M 0,${height} ${points.split(' ').map((p, i) => (i === 0 ? `L ${p}` : p)).join(' ')} L ${width},${height} Z`;
+
+    const warningY = height - (warning / maxVal) * height;
+    const alarmY = height - (alarm / maxVal) * height;
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="graphGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+                </linearGradient>
+            </defs>
+
+            {/* Limit Lines */}
+            <line x1="0" y1={warningY} x2={width} y2={warningY} stroke="#f97316" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
+            <line x1="0" y1={alarmY} x2={width} y2={alarmY} stroke="#ef4444" strokeDasharray="4 2" strokeOpacity="0.5" strokeWidth="1" />
+
+            {/* Area */}
+            <motion.path
+                d={areaPath}
+                fill="url(#graphGradient)"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1 }}
+            />
+
+            {/* Main Path */}
+            <motion.polyline
+                points={points}
+                fill="none"
+                stroke="#0ea5e9"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+            />
+
+            {/* Current Point */}
+            <motion.circle
+                cx={width}
+                cy={height - (Math.min(filteredData[filteredData.length - 1].val, maxVal) / maxVal) * height}
+                r="3"
+                fill="#0ea5e9"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 1.5 }}
+            />
+        </svg>
+    );
+};
+
 const App = () => {
     const [allStations, setAllStations] = useState({});
     const [selectedStation, setSelectedStation] = useState("Antwerpen");
@@ -45,10 +132,37 @@ const App = () => {
         waterbomb: 2
     });
     const [language, setLanguage] = useState(localStorage.getItem('flood_lang') || 'en');
+    const [stationHistory, setStationHistory] = useState([]);
+    const [timeframe, setTimeframe] = useState('24h');
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
     const t = (key) => translations[language][key] || key;
 
     const STATIONS = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
+
+    const fetchHistory = async (station) => {
+        if (!station) return;
+        setIsHistoryLoading(true);
+        try {
+            const res = await fetch(`/.netlify/functions/get-history?station=${station}`);
+            if (res.ok) {
+                const data = await res.json();
+                setStationHistory(data);
+            }
+        } catch (e) {
+            console.error("History fetch failed", e);
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedStation) {
+            fetchHistory(selectedStation);
+        } else {
+            setStationHistory([]);
+        }
+    }, [selectedStation]);
 
     const sendNotification = (title, body) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -374,7 +488,7 @@ const App = () => {
                                         <button
                                             key={name}
                                             onClick={() => setSelectedStation(prev => prev === name ? null : name)}
-                                            className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 ${isSelected
+                                            className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 text-left w-full ${isSelected
                                                 ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
                                                 : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
                                                 }`}
@@ -408,6 +522,53 @@ const App = () => {
                                                     <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
                                                 )}
                                             </div>
+
+                                            {/* Historical Graph & Info */}
+                                            <AnimatePresence>
+                                                {isSelected && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
+                                                    >
+                                                        {/* Timeframe Selector */}
+                                                        <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2 scrollbar-hide">
+                                                            {['5m', '30m', '3h', '8h', '24h'].map(tf => (
+                                                                <button
+                                                                    key={tf}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setTimeframe(tf);
+                                                                    }}
+                                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${timeframe === tf
+                                                                        ? 'bg-sky-500 text-[#0f172a] shadow-[0_0_10px_rgba(14,165,233,0.3)]'
+                                                                        : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                                                        }`}
+                                                                >
+                                                                    {tf}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Graph Area */}
+                                                        <div className="h-32 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
+                                                            {isHistoryLoading ? (
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                                                                </div>
+                                                            ) : (
+                                                                <HistoricalGraph
+                                                                    data={stationHistory}
+                                                                    timeframe={timeframe}
+                                                                    warning={s?.warning || 30}
+                                                                    alarm={s?.alarm || 15}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </button>
                                     );
                                 })}
@@ -732,7 +893,7 @@ const App = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 };
 
