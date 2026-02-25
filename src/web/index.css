@@ -11,3 +11,12 @@
 .glass-card {
   @apply bg-slate-800/40 border border-slate-700/50 backdrop-blur-md;
 }
+
+@keyframes glow-red {
+  0%, 100% { text-shadow: 0 0 5px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.3); }
+  50% { text-shadow: 0 0 15px rgba(239, 68, 68, 0.8), 0 0 25px rgba(239, 68, 68, 0.5); }
+}
+
+.animate-glow-red {
+  animation: glow-red 2s ease-in-out infinite;
+}

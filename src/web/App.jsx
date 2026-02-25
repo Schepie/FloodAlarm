@@ -69,10 +69,8 @@ const App = () => {
             }
 
             // Global offline check (based on Antwerpen - our real ESP)
-            if (data["Antwerpen"]?.lastSeen) {
-                const lastSeen = new Date(data["Antwerpen"].lastSeen);
-                const diff = (new Date() - lastSeen) / 1000 / 60;
-                setIsOffline(diff > 5);
+            if (data["Antwerpen"]) {
+                setIsOffline(checkIsOffline(data["Antwerpen"]));
             }
 
         } catch (e) {
@@ -204,6 +202,22 @@ const App = () => {
         } catch (e) {
             alert('Failed to connect to cloud notification service');
         }
+    };
+
+    const getStationInterval = (s) => {
+        if (!s || !s.intervals) return 15; // default 15 min
+        if (s.status === 'ALARM') return s.intervals.stormy;
+        if (s.status === 'WARNING') return s.intervals.moderate;
+        return s.intervals.sunny;
+    };
+
+    const checkIsOffline = (s) => {
+        if (!s || !s.lastSeen) return true;
+        const lastSeen = new Date(s.lastSeen);
+        const windowMin = getStationInterval(s);
+        const bufferWindow = windowMin * 1.25; // +25%
+        const diffMin = (new Date() - lastSeen) / 1000 / 60;
+        return diffMin > bufferWindow;
     };
 
     const status = allStations[selectedStation];
@@ -352,21 +366,39 @@ const App = () => {
                                         <button
                                             key={name}
                                             onClick={() => setSelectedStation(name)}
-                                            className={`flex items-center justify-between p-3 rounded-2xl transition-all border ${isSelected
+                                            className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 ${isSelected
                                                 ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
                                                 : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
                                                 }`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' ? 'animate-pulse' : ''}`} />
-                                                <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' ? 'animate-pulse' : ''}`} />
+                                                    <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
+                                                        {s ? s.distance.toFixed(1) : '--'}
+                                                        <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                    </span>
+                                                    <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
-                                                    {s ? s.distance.toFixed(1) : '--'}
-                                                    <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                </span>
-                                                <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
+
+                                            {/* Last Updated Info */}
+                                            <div className="flex items-center justify-between w-full pl-5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <History className={`w-3 h-3 ${checkIsOffline(s) ? 'text-red-500' : 'text-slate-600'}`} />
+                                                    <span className={`text-[10px] font-bold tracking-tight ${checkIsOffline(s)
+                                                        ? 'text-red-500 animate-glow-red'
+                                                        : 'text-slate-500'
+                                                        }`}>
+                                                        {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'NEVER'}
+                                                    </span>
+                                                </div>
+                                                {s?.isSimulated && (
+                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">Sim</span>
+                                                )}
                                             </div>
                                         </button>
                                     );
