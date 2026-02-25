@@ -380,9 +380,12 @@ const App = () => {
                 })
             });
             if (!res.ok) {
-                console.error(`Save failed with status ${res.status}`);
+                const errorText = await res.text();
+                console.error(`Save failed with status ${res.status}: ${errorText}`);
+                alert(`Cloud Save Error (${res.status}): ${errorText}`);
                 throw new Error('Save failed');
             }
+
             localStorage.setItem('flood_api_key', cloudApiKey);
             setIsSettingsOpen(false);
             fetchStatus();
