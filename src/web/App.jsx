@@ -263,8 +263,6 @@ const App = () => {
 
     const t = (key) => translations[language][key] || key;
 
-    const STATIONS = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
-
     const fetchHistory = async (station) => {
         if (!station) return;
         setIsHistoryLoading(true);
@@ -807,181 +805,193 @@ const App = () => {
                         </motion.div>
 
                         {/* Station List */}
-                        <div className="glass-card rounded-3xl p-6 z-10 transition-all">
-                            <button
-                                onClick={() => setExpandedRivers(prev => {
-                                    const nextState = !prev.SCHELDE;
-                                    if (!nextState) setSelectedStation(null);
-                                    return { ...prev, SCHELDE: nextState };
-                                })}
-                                className="flex items-center justify-between w-full mb-0 group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">
-                                        <Droplets className="w-4 h-4 text-sky-400" />
-                                    </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">{t('schelde')}</span>
-                                </div>
-                                {expandedRivers.SCHELDE ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
-                            </button>
-
-                            <AnimatePresence>
-                                {expandedRivers.SCHELDE && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
-                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        className="overflow-hidden"
+                        <div className="glass-card rounded-3xl p-6 z-10 transition-all flex flex-col gap-6">
+                            {Object.entries(
+                                Object.keys(allStations).reduce((acc, name) => {
+                                    if (name === "Belgium" || !name) return acc;
+                                    const r = (allStations[name].river || "SCHELDE").toUpperCase();
+                                    if (!acc[r]) acc[r] = [];
+                                    acc[r].push(name);
+                                    return acc;
+                                }, {})
+                            ).map(([riverName, stationNames]) => (
+                                <div key={riverName} className="flex flex-col">
+                                    <button
+                                        onClick={() => setExpandedRivers(prev => {
+                                            const nextState = !prev[riverName];
+                                            if (!nextState && stationNames.includes(selectedStation)) setSelectedStation(null);
+                                            return { ...prev, [riverName]: nextState };
+                                        })}
+                                        className="flex items-center justify-between w-full mb-0 group border-b border-transparent hover:border-slate-800/50 pb-2"
                                     >
-                                        <div className="flex flex-col gap-2">
-                                            {STATIONS.map(name => {
-                                                const s = allStations[name];
-                                                const isSelected = selectedStation === name;
-
-                                                const getStatColor = (stat) => {
-                                                    if (!stat) return 'bg-slate-800';
-                                                    if (name === "Antwerpen" && isOffline) return 'bg-red-500/50';
-                                                    switch (stat.status) {
-                                                        case 'ALARM': return 'bg-red-500';
-                                                        case 'WARNING': return 'bg-orange-500';
-                                                        default: return 'bg-emerald-500';
-                                                    }
-                                                };
-
-                                                return (
-                                                    <button
-                                                        key={name}
-                                                        onClick={() => setSelectedStation(prev => prev === name ? null : name)}
-                                                        className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 text-left w-full ${isSelected
-                                                            ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
-                                                            : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
-                                                            }`}
-                                                    >
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' ? 'animate-pulse' : ''}`} />
-                                                                <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
-                                                                    {s ? s.distance.toFixed(1) : '--'}
-                                                                    <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                </span>
-                                                                <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Last Updated Info */}
-                                                        <div className="flex items-center justify-between w-full pl-5">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <History className={`w-3 h-3 ${checkIsOffline(s) ? 'text-red-500' : 'text-slate-600'}`} />
-                                                                <span className={`text-[10px] font-bold tracking-tight ${checkIsOffline(s)
-                                                                    ? 'text-red-500 animate-glow-red'
-                                                                    : 'text-slate-500'
-                                                                    }`}>
-                                                                    {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
-                                                                </span>
-                                                            </div>
-                                                            {s?.isSimulated && (
-                                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Historical Graph & Info */}
-                                                        <AnimatePresence>
-                                                            {isSelected && (
-                                                                <motion.div
-                                                                    initial={{ height: 0, opacity: 0 }}
-                                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                                    exit={{ height: 0, opacity: 0 }}
-                                                                    className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
-                                                                >
-                                                                    {/* Stats Header */}
-                                                                    {(() => {
-                                                                        const filtered = stationHistory.filter(d => {
-                                                                            const diffMin = (new Date() - new Date(d.ts)) / 1000 / 60;
-                                                                            if (timeframe === '1h') return diffMin <= 60;
-                                                                            if (timeframe === '3h') return diffMin <= 180;
-                                                                            if (timeframe === '8h') return diffMin <= 480;
-                                                                            return true; // 24h
-                                                                        });
-                                                                        if (filtered.length === 0) return null;
-
-                                                                        const minVal = Math.min(...filtered.map(d => d.val)).toFixed(1);
-                                                                        const maxVal = Math.max(...filtered.map(d => d.val)).toFixed(1);
-
-                                                                        return (
-                                                                            <div className="flex justify-between items-center px-1">
-                                                                                <div className="flex gap-4">
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('min')}</span>
-                                                                                        <span className="text-sm font-black text-sky-400">
-                                                                                            {minVal}
-                                                                                            <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('max')}</span>
-                                                                                        <span className="text-sm font-black text-slate-200">
-                                                                                            {maxVal}
-                                                                                            <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded-lg border border-slate-700/50">
-                                                                                    {timeframe} {t('window')}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-
-                                                                    {/* Graph Area */}
-                                                                    <div className="h-48 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
-                                                                        <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
-                                                                            {stationHistory.length} pts
-                                                                        </div>
-                                                                        {isHistoryLoading ? (
-                                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                                <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                                                                            </div>
-                                                                        ) : (
-                                                                            <HistoricalGraph
-                                                                                data={stationHistory}
-                                                                                timeframe={timeframe}
-                                                                                warning={s?.warning || 30}
-                                                                                alarm={s?.alarm || 15}
-                                                                            />
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Timeframe Selector (Now below graph) */}
-                                                                    <div className="flex items-center justify-end gap-1 overflow-x-auto pb-2 scrollbar-hide">
-                                                                        {['1h', '3h', '8h', '24h'].map(tf => (
-                                                                            <button
-                                                                                key={tf}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setTimeframe(tf);
-                                                                                }}
-                                                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${timeframe === tf
-                                                                                    ? 'bg-sky-500 text-[#0f172a] shadow-[0_0_10px_rgba(14,165,233,0.3)]'
-                                                                                    : 'bg-slate-800 text-slate-500 hover:text-slate-300'
-                                                                                    }`}
-                                                                            >
-                                                                                {tf}
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </button>
-                                                );
-                                            })}
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">
+                                                <Droplets className="w-4 h-4 text-sky-400" />
+                                            </div>
+                                            <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">{t(riverName.toLowerCase()) || riverName}</span>
                                         </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                                        {expandedRivers[riverName] ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {expandedRivers[riverName] && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
+                                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    {stationNames.map(name => {
+                                                        const s = allStations[name];
+                                                        const isSelected = selectedStation === name;
+
+                                                        const getStatColor = (stat) => {
+                                                            if (!stat) return 'bg-slate-800';
+                                                            if (name === "Antwerpen" && isOffline) return 'bg-red-500/50';
+                                                            switch (stat.status) {
+                                                                case 'ALARM': return 'bg-red-500';
+                                                                case 'WARNING': return 'bg-orange-500';
+                                                                default: return 'bg-emerald-500';
+                                                            }
+                                                        };
+
+                                                        return (
+                                                            <button
+                                                                key={name}
+                                                                onClick={() => setSelectedStation(prev => prev === name ? null : name)}
+                                                                className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 text-left w-full ${isSelected
+                                                                    ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
+                                                                    : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' ? 'animate-pulse' : ''}`} />
+                                                                        <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
+                                                                            {s ? s.distance.toFixed(1) : '--'}
+                                                                            <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                        </span>
+                                                                        <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Last Updated Info */}
+                                                                <div className="flex items-center justify-between w-full pl-5">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <History className={`w-3 h-3 ${checkIsOffline(s) ? 'text-red-500' : 'text-slate-600'}`} />
+                                                                        <span className={`text-[10px] font-bold tracking-tight ${checkIsOffline(s)
+                                                                            ? 'text-red-500 animate-glow-red'
+                                                                            : 'text-slate-500'
+                                                                            }`}>
+                                                                            {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
+                                                                        </span>
+                                                                    </div>
+                                                                    {s?.isSimulated && (
+                                                                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Historical Graph & Info */}
+                                                                <AnimatePresence>
+                                                                    {isSelected && (
+                                                                        <motion.div
+                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                            className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
+                                                                        >
+                                                                            {/* Stats Header */}
+                                                                            {(() => {
+                                                                                const filtered = stationHistory.filter(d => {
+                                                                                    const diffMin = (new Date() - new Date(d.ts)) / 1000 / 60;
+                                                                                    if (timeframe === '1h') return diffMin <= 60;
+                                                                                    if (timeframe === '3h') return diffMin <= 180;
+                                                                                    if (timeframe === '8h') return diffMin <= 480;
+                                                                                    return true; // 24h
+                                                                                });
+                                                                                if (filtered.length === 0) return null;
+
+                                                                                const minVal = Math.min(...filtered.map(d => d.val)).toFixed(1);
+                                                                                const maxVal = Math.max(...filtered.map(d => d.val)).toFixed(1);
+
+                                                                                return (
+                                                                                    <div className="flex justify-between items-center px-1">
+                                                                                        <div className="flex gap-4">
+                                                                                            <div className="flex flex-col">
+                                                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('min')}</span>
+                                                                                                <span className="text-sm font-black text-sky-400">
+                                                                                                    {minVal}
+                                                                                                    <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div className="flex flex-col">
+                                                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('max')}</span>
+                                                                                                <span className="text-sm font-black text-slate-200">
+                                                                                                    {maxVal}
+                                                                                                    <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded-lg border border-slate-700/50">
+                                                                                            {timeframe} {t('window')}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+
+                                                                            {/* Graph Area */}
+                                                                            <div className="h-48 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
+                                                                                <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
+                                                                                    {stationHistory.length} pts
+                                                                                </div>
+                                                                                {isHistoryLoading ? (
+                                                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                                                        <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <HistoricalGraph
+                                                                                        data={stationHistory}
+                                                                                        timeframe={timeframe}
+                                                                                        warning={s?.warning || 30}
+                                                                                        alarm={s?.alarm || 15}
+                                                                                    />
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Timeframe Selector (Now below graph) */}
+                                                                            <div className="flex items-center justify-end gap-1 overflow-x-auto pb-2 scrollbar-hide">
+                                                                                {['1h', '3h', '8h', '24h'].map(tf => (
+                                                                                    <button
+                                                                                        key={tf}
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setTimeframe(tf);
+                                                                                        }}
+                                                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${timeframe === tf
+                                                                                            ? 'bg-sky-500 text-[#0f172a] shadow-[0_0_10px_rgba(14,165,233,0.3)]'
+                                                                                            : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                                                                            }`}
+                                                                                    >
+                                                                                        {tf}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
                         </div>
 
                         {/* Water Level & Forecast Card replaced by Settings & Compact Items */}
