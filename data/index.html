@@ -287,6 +287,29 @@
       color: var(--text-muted);
       font-size: .75rem;
     }
+
+    .sync-btn {
+      background: rgba(56, 189, 248, .1);
+      border: 1px solid rgba(56, 189, 248, .3);
+      color: var(--accent);
+      padding: .4rem 1rem;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: .75rem;
+      transition: all .2s;
+    }
+
+    .sync-btn:hover {
+      background: rgba(56, 189, 248, .2);
+      border-color: var(--accent);
+    }
+
+    .sync-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -296,6 +319,7 @@
     <h1>&#x1F30A; <span id="headerStation">Flood Monitor</span></h1>
     <p id="headerRiver" style="margin-top: -0.2rem; font-weight: 600; color: var(--accent); opacity: 0.8;"></p>
     <p><span class="conn-dot" id="connDot"></span><span id="connText">Connecting…</span></p>
+    <button id="syncBtn" class="sync-btn" onclick="triggerSync()">Sync with Cloud</button>
   </header>
 
 
@@ -422,6 +446,35 @@
         .then(r => r.json())
         .then(d => updateLive(d))
         .catch(err => console.error('Status fetch error:', err));
+    }
+
+    function triggerSync() {
+      const btn = document.getElementById('syncBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+
+      fetch('/api/sync', { method: 'POST' })
+        .then(r => {
+          if (r.ok) {
+            btn.textContent = 'Synced!';
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }, 2000);
+            fetchStatus();
+          } else {
+            throw new Error('Sync failed');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          btn.textContent = 'Error!';
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+          }, 3000);
+        });
     }
 
     function updateLive(d) {

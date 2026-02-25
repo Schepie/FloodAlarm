@@ -282,10 +282,16 @@ const App = () => {
     useEffect(() => {
         if (selectedStation) {
             fetchHistory(selectedStation);
+
+            // Sync simulator distance with current cloud value if it exists
+            const currentStat = allStations[selectedStation];
+            if (currentStat && currentStat.distance !== undefined && selectedStation !== "Antwerpen") {
+                setSimDistance(currentStat.distance);
+            }
         } else {
             setStationHistory([]);
         }
-    }, [selectedStation]);
+    }, [selectedStation, allStations]);
 
     const sendNotification = (title, body) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;

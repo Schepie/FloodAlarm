@@ -10,6 +10,7 @@
 
 extern void setSimulation(bool active, float distance);
 extern void setAutoSimulation(bool enabled);
+extern void triggerManualSync();
 
 
 extern float currentDistance;
@@ -167,6 +168,12 @@ void WebHandler::begin(AsyncWebServer& server, AsyncWebSocket& ws) {
         } else {
             req->send(400, "text/plain", "Missing enabled param");
         }
+    });
+
+    // ── API: Manual Sync ───────────────────────────────────────────────
+    server.on("/api/sync", HTTP_POST, [](AsyncWebServerRequest* req) {
+        triggerManualSync();
+        req->send(200, "text/plain", "OK");
     });
 
     Serial.println("[Web] Routes registered.");
