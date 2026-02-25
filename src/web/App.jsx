@@ -927,12 +927,21 @@ const App = () => {
                         className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-slate-950/80 backdrop-blur-sm"
                     >
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]"
+                            initial={{ y: "100%", opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: "100%", opacity: 0 }}
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 0 }}
+                            dragElastic={0.4}
+                            onDragEnd={(e, { offset, velocity }) => {
+                                if (Math.abs(offset.x) > 100 || Math.abs(velocity.x) > 500) {
+                                    setIsSettingsOpen(false);
+                                }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-slate-900 border-t border-slate-800 w-full h-full overflow-hidden flex flex-col fixed inset-0 z-50 pt-safe"
                         >
-                            <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center justify-between p-8 pb-4">
                                 <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
                                     <Settings className="w-5 h-5 text-sky-400" />
                                     {t('settings')}
@@ -945,7 +954,12 @@ const App = () => {
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                            {/* Swipe Indicator */}
+                            <div className="flex justify-center mb-2">
+                                <div className="w-12 h-1.5 bg-slate-800 rounded-full opacity-50" />
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto px-8 pb-32 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                                 <div className="space-y-8">
                                     {/* Thresholds Section */}
                                     <div className="space-y-6">
@@ -1040,12 +1054,15 @@ const App = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleSaveSettings}
-                                className="w-full mt-6 bg-sky-500 hover:bg-sky-400 text-[#0f172a] py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg shadow-sky-500/10 flex-shrink-0"
-                            >
-                                {t('save')}
-                            </button>
+                            {/* Fixed Bottom Save Button */}
+                            <div className="p-8 pt-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-800">
+                                <button
+                                    onClick={handleSaveSettings}
+                                    className="w-full bg-sky-500 hover:bg-sky-400 text-[#0f172a] py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg shadow-sky-500/10"
+                                >
+                                    {t('save')}
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
