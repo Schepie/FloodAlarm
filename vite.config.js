@@ -10,7 +10,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['icon.svg'],
       manifest: {
         name: 'Flood Monitor Pro',
         short_name: 'FloodMonitor',
@@ -20,17 +20,17 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'icon.svg',
+            src: '/icon.svg',
             sizes: '192x192',
             type: 'image/svg+xml'
           },
           {
-            src: 'icon.svg',
+            src: '/icon.svg',
             sizes: '512x512',
             type: 'image/svg+xml'
           },
           {
-            src: 'icon.svg',
+            src: '/icon.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any maskable'
