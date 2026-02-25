@@ -15,6 +15,8 @@ extern void setAutoSimulation(bool enabled);
 extern float currentDistance;
 extern float warningThreshold;
 extern float alarmThreshold;
+extern uint32_t currentIntervalMs;
+
 
 void WebHandler::begin(AsyncWebServer& server, AsyncWebSocket& ws) {
     // ── WebSocket ───────────────────────────────────────────────────────
@@ -79,7 +81,8 @@ void WebHandler::begin(AsyncWebServer& server, AsyncWebSocket& ws) {
         doc["station"]  = prefs.getString("station", "Antwerpen");
         doc["river"]    = prefs.getString("river", "Schelde");
         prefs.end();
-        doc["interval"] = SENSOR_READ_INTERVAL_MS / 1000; // in seconds
+        doc["interval"] = currentIntervalMs / 1000; // in seconds
+
 
 
         if (currentDistance <= 0) {
@@ -188,7 +191,8 @@ void WebHandler::broadcastLevel(AsyncWebSocket& ws, float distanceCm,
     doc["station"] = prefs.getString("station", "Antwerpen");
     doc["river"]   = prefs.getString("river", "Schelde");
     prefs.end();
-    doc["interval"] = SENSOR_READ_INTERVAL_MS / 1000;
+    doc["interval"] = currentIntervalMs / 1000;
+
 
 
     // Determine status

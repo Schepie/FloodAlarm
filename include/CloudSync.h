@@ -13,8 +13,10 @@ namespace CloudSync {
      * @param forecast Text description of forecast
      * @return true if push succeeded
      */
-    bool pushData(float distance, float warnThr, float alarmThr, 
-                  const String& status, bool rainExpected, const String& forecast);
+    // Returns next measurement interval in seconds if successful, negative on error.
+    int32_t pushData(float distance, float warnThr, float alarmThr, 
+                     const String& status, bool rainExpected, const String& forecast);
+
 
     /**
      * @brief Triggers a station migration on the server (rename/move data).

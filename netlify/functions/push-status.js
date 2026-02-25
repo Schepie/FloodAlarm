@@ -11,16 +11,7 @@ export default async (req, context) => {
     const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
 
     if (authHeader !== SECRET_KEY) {
-        return new Response(JSON.stringify({
-            error: 'Unauthorized',
-            receivedPrefix: authHeader ? authHeader.substring(0, 4) + "..." : "null",
-            receivedLength: authHeader ? authHeader.length : 0,
-            expectedLength: SECRET_KEY.length,
-            envSet: process.env.FLOOD_API_KEY ? "yes" : "no"
-        }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" }
-        });
+        return new Response('Unauthorized', { status: 401 });
     }
 
 
@@ -71,14 +62,31 @@ export default async (req, context) => {
         await historyStore.setJSON(historyKey, history);
         // --- End History Logic ---
 
-        // Also keep "latest_status" compatible for now
+        // Determine next measurement interval (in seconds)
+        let nextInterval = 900; // Default: 15 min (Sunny)
+
+        if (status === 'ALARM') {
+            nextInterval = 120; // 2 min (Waterbomb/Critical)
+        } else if (status === 'WARNING' || rainExpected) {
+            nextInterval = 300; // 5 min (Stormy/Heavy)
+        } else if (forecast && (forecast.toLowerCase().includes('rain') || forecast.toLowerCase().includes('drizzle'))) {
+            nextInterval = 600; // 10 min (Moderate Rain)
+        }
+
         await store.setJSON("latest_status", sensorData);
         await store.setJSON("stations_data", stations);
 
-        return new Response(JSON.stringify({ success: true, updated: station, data: sensorData, historyCount: history.length }), {
+        return new Response(JSON.stringify({
+            success: true,
+            updated: station,
+            data: sensorData,
+            historyCount: history.length,
+            nextInterval: nextInterval
+        }), {
             status: 200,
             headers: { "Content-Type": "application/json" }
         });
+
     } catch (error) {
         return new Response(JSON.stringify({ error: 'Update failed', details: error.message }), {
             status: 400,

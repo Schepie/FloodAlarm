@@ -36,9 +36,24 @@ unsigned long lastLogTime         = 0;
 unsigned long lastWeatherPoll     = 0;
 unsigned long lastWSBroadcast     = 0;
 unsigned long lastNotificationTime = 0;
+// Measurement Settings
+uint32_t currentIntervalMs = SENSOR_READ_INTERVAL_MS;
+
+void setMeasurementInterval(uint32_t seconds) {
+    if (seconds >= 30) { // Safety floor: 30s
+        currentIntervalMs = seconds * 1000UL;
+        Serial.printf("[Interval] Set to %d s\n", seconds);
+    }
+}
+
 unsigned long lastCloudPush       = 0;
 unsigned long lastAutoSimUpdate   = 0;
 bool autoSimEnabled = false;
+
+void setAutoSimulation(bool enabled) {
+    autoSimEnabled = enabled;
+}
+
 
 void setAutoSimulation(bool enabled) {
     autoSimEnabled = enabled;
@@ -142,8 +157,7 @@ void loop() {
 
 
     // ── Read sensor ─────────────────────────────────────────────────────
-
-    if (now - lastSensorRead >= SENSOR_READ_INTERVAL_MS) {
+    if (now - lastSensorRead >= currentIntervalMs) {
         lastSensorRead = now;
         
         if (simulationActive) {
@@ -154,56 +168,52 @@ void loop() {
                 currentDistance = dist;
             }
         }
-    }
+        
+        // Update thresholds and buzzer
+        if (WeatherSvc::isRainExpected()) {
+            warningThreshold = DEFAULT_WARNING_CM * RAIN_THRESHOLD_FACTOR;
+            alarmThreshold   = DEFAULT_ALARM_CM   * RAIN_THRESHOLD_FACTOR;
+        } else {
+            warningThreshold = DEFAULT_WARNING_CM;
+            alarmThreshold   = DEFAULT_ALARM_CM;
+        }
 
-    // ── Update thresholds based on weather ──────────────────────────────
-    if (WeatherSvc::isRainExpected()) {
-        warningThreshold = DEFAULT_WARNING_CM * RAIN_THRESHOLD_FACTOR;
-        alarmThreshold   = DEFAULT_ALARM_CM   * RAIN_THRESHOLD_FACTOR;
-    } else {
-        warningThreshold = DEFAULT_WARNING_CM;
-        alarmThreshold   = DEFAULT_ALARM_CM;
-    }
-
-    // ── Check alarm / warning ───────────────────────────────────────────
-    if (currentDistance > 0) {
-        if (currentDistance <= alarmThreshold) {
-            // ALARM — continuous buzzer
-            if (!buzzerActive) {
-                Serial.println("[ALARM] Water level CRITICAL! Distance: " + String(currentDistance) + " cm");
+        String statusStr = "NORMAL";
+        if (currentDistance > 0) {
+            if (currentDistance <= alarmThreshold) {
+                statusStr = "ALARM";
+                digitalWrite(PIN_BUZZER, HIGH);
                 buzzerActive = true;
-                
-                // Send Telegram Notification
                 if (now - lastNotificationTime >= (TELEGRAM_COOLDOWN_MIN * 60000UL) || lastNotificationTime == 0) {
                     lastNotificationTime = now;
-                    String msg = "🚨 FLOOD ALARM! Water distance: " + String(currentDistance) + " cm";
-                    if (WeatherSvc::isRainExpected()) msg += " (Rain expected)";
-                    NotificationMgr::sendTelegram(msg);
+                    NotificationMgr::sendTelegram("🚨 FLOOD ALARM! Water: " + String(currentDistance) + " cm");
                 }
+            } else if (currentDistance <= warningThreshold) {
+                statusStr = "WARNING";
+                digitalWrite(PIN_BUZZER, (now / 500) % 2); // Blink buzzer
+                buzzerActive = false;
+            } else {
+                digitalWrite(PIN_BUZZER, LOW);
+                buzzerActive = false;
             }
-            digitalWrite(PIN_BUZZER, HIGH);
-        } else if (currentDistance <= warningThreshold) {
-            // WARNING — intermittent beep
-            static unsigned long lastBeep = 0;
-            if (now - lastBeep >= 1000) {
-                lastBeep = now;
-                digitalWrite(PIN_BUZZER, !digitalRead(PIN_BUZZER));
-            }
-            if (buzzerActive) {
-                // Was in alarm, now warning — log change
-                Serial.println("[WARNING] Water level elevated. Distance: " + String(currentDistance) + " cm");
-            }
-            buzzerActive = false;
-        } else {
-            // NORMAL
-            digitalWrite(PIN_BUZZER, LOW);
-            buzzerActive = false;
+        }
+
+        // ── Cloud Push (Every sensor read) ──────────────────────────────
+        int32_t nextSec = CloudSync::pushData(currentDistance, warningThreshold, alarmThreshold, 
+                                            statusStr, WeatherSvc::isRainExpected(), 
+                                            WeatherSvc::getForecastDescription());
+        if (nextSec >= 30) {
+            setMeasurementInterval(nextSec);
         }
     }
 
-    // ── Broadcast via WebSocket ─────────────────────────────────────────
+    // ── Broadcast via WebSocket (Frequent updates) ──────────────────────
     if (now - lastWSBroadcast >= WS_BROADCAST_INTERVAL_MS) {
         lastWSBroadcast = now;
+        String curStatus = "NORMAL";
+        if (currentDistance <= alarmThreshold) curStatus = "ALARM";
+        else if (currentDistance <= warningThreshold) curStatus = "WARNING";
+
         WebHandler::broadcastLevel(ws, currentDistance,
                                    warningThreshold, alarmThreshold,
                                    WeatherSvc::isRainExpected(),
@@ -224,24 +234,6 @@ void loop() {
     if (now - lastWeatherPoll >= WEATHER_POLL_INTERVAL_MS) {
         lastWeatherPoll = now;
         WeatherSvc::update();
-    }
-
-    // ── Cloud Push ──────────────────────────────────────────────────────
-    if (now - lastCloudPush >= CLOUD_PUSH_INTERVAL_MS) {
-        lastCloudPush = now;
-        
-        String statusStr = "NORMAL";
-        if (currentDistance <= alarmThreshold) statusStr = "ALARM";
-        else if (currentDistance <= warningThreshold) statusStr = "WARNING";
-
-        CloudSync::pushData(
-            currentDistance, 
-            warningThreshold, 
-            alarmThreshold,
-            statusStr, 
-            WeatherSvc::isRainExpected(), 
-            WeatherSvc::getForecastDescription()
-        );
     }
 
     // ── Heartbeat ──────────────────────────────────────────────────────

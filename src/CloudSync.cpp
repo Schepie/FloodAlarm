@@ -9,10 +9,10 @@
 namespace CloudSync {
     static Preferences prefs;
 
-    bool pushData(float distance, float warnThr, float alarmThr, 
-                  const String& status, bool rainExpected, const String& forecast) {
+    int32_t pushData(float distance, float warnThr, float alarmThr, 
+                     const String& status, bool rainExpected, const String& forecast) {
         
-        if (WiFi.status() != WL_CONNECTED) return false;
+        if (WiFi.status() != WL_CONNECTED) return -1;
 
         // Load metadata
         prefs.begin("wifi", true); // read-only
@@ -21,7 +21,7 @@ namespace CloudSync {
         prefs.end();
 
         WiFiClientSecure client;
-        client.setInsecure(); // Netlify certs are dynamic, for IoT insecure is often easier but less secure.
+        client.setInsecure();
         
         HTTPClient http;
         
@@ -35,7 +35,6 @@ namespace CloudSync {
             http.addHeader("Authorization", CLOUD_API_KEY);
             
             // Build JSON payload
-
             JsonDocument doc;
             doc["distance"] = distance;
             doc["warning"] = warnThr;
@@ -45,28 +44,37 @@ namespace CloudSync {
             doc["forecast"] = forecast;
             doc["station"] = station;
             doc["river"] = river;
-            // Key removed from body, now in URL
-
-
 
             String payload;
             serializeJson(doc, payload);
 
             int httpCode = http.POST(payload);
+            int32_t nextInterval = -1;
 
             if (httpCode > 0) {
                 Serial.printf("[Cloud] POST result: %d\n", httpCode);
                 String response = http.getString();
-                Serial.println("[Cloud] Response: " + response);
+                
+                if (httpCode == 200) {
+                    JsonDocument respDoc;
+                    deserializeJson(respDoc, response);
+                    if (respDoc.containsKey("nextInterval")) {
+                        nextInterval = respDoc["nextInterval"];
+                        Serial.printf("[Cloud] Next interval from server: %d s\n", nextInterval);
+                    }
+                } else {
+                    Serial.println("[Cloud] Response: " + response);
+                }
                 http.end();
-                return (httpCode == 200);
+                return nextInterval;
             } else {
                 Serial.printf("[Cloud] POST failed: %s\n", http.errorToString(httpCode).c_str());
             }
             http.end();
         }
-        return false;
+        return -1;
     }
+
 
     bool migrateStation(const String& oldName, const String& newName, const String& river) {
 
