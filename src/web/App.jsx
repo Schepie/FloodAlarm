@@ -1085,8 +1085,8 @@ const App = () => {
                                                                 console.log(`[Slider] New value for ${selectedStation}: ${val}`);
                                                                 setSimDistance(val);
                                                             }}
-                                                            onMouseUp={() => handleSimPush(selectedStation, simDistance)}
-                                                            onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
+                                                            onMouseUp={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
+                                                            onTouchEnd={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
                                                             className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
                                                         />
                                                     </div>
