@@ -608,6 +608,8 @@
           },
           y: {
             reverse: true,   // lower distance = higher water → show danger at top
+            suggestedMin: 0,
+            suggestedMax: 200,
             ticks: { color: '#94a3b8', font: { size: 10 } },
             grid: { color: 'rgba(255,255,255,.04)' },
             title: { display: true, text: 'Distance (cm)', color: '#94a3b8' }
@@ -653,8 +655,21 @@
             data.push(dist);
           }
 
+          if (labels.length === 0 && lines.length > 1) {
+            for (let i = 1; i < lines.length; i++) {
+              const parts = lines[i].split(',');
+              if (parts.length < 2) continue;
+              const ts = parseInt(parts[0]);
+              const dist = parseFloat(parts[1]);
+              const d = new Date(ts * 1000);
+              labels.push(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
+              data.push(dist);
+            }
+          }
+
           chart.data.labels = labels;
           chart.data.datasets[0].data = data;
+          chart.update();
           document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
         })
         .catch(err => console.error('History fetch error:', err));
