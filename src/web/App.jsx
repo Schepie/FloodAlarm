@@ -498,8 +498,20 @@ const App = () => {
                 console.error(`Simulation push failed: ${errorText}`);
                 throw new Error('Push failed');
             }
-            fetchStatus();
-            fetchHistory(station);
+
+            const resData = await res.json();
+            if (resData.success && resData.data) {
+                setAllStations(prev => ({
+                    ...prev,
+                    [station]: resData.data
+                }));
+            }
+
+            // Delay history fetch slightly to allow Netlify Edge Blobs to propagate
+            setTimeout(() => {
+                fetchHistory(station);
+            }, 1500);
+
         } catch (e) {
             console.error("Simulation push failed", e);
         }
