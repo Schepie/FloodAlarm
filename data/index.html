@@ -340,72 +340,56 @@
       </div>
     </div>
 
-    <!-- Status + Weather -->
-    <div class="card">
-      <h2>Status</h2>
-      <div style="margin-bottom:1rem; display: flex; justify-content: space-between; align-items: center;">
-        <span class="badge badge-normal" id="statusBadge">NORMAL</span>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Interval: <span id="intervalVal">--</span>s</span>
-      </div>
 
-      <h2>Weather Forecast</h2>
-      <div class="weather-status">
-        <span class="weather-icon" id="weatherIcon">&#x2600;&#xFE0F;</span>
-        <div class="weather-text">
-          <div class="forecast" id="weatherDesc">Loading…</div>
-          <div class="modifier" id="weatherMod">Thresholds: default</div>
-        </div>
-      </div>
-    </div>
+  </div>
 
-    <!-- Simulation Mode -->
-    <div class="card">
-      <h2>Simulation Mode</h2>
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem;">
-        <label class="switch">
-          <input type="checkbox" id="simToggle">
-          <span class="slider-round"></span>
-        </label>
-        <span id="simStatusText">Disabled</span>
-      </div>
-      <div id="simControls" style="opacity:0.5; pointer-events:none;">
-        <label style="display:block; font-size:0.75rem; margin-bottom:5px;">Simulated Distance: <span
-            id="simVal">100</span> cm</label>
-        <input type="range" id="simSlider" min="2" max="400" value="100"
-          style="width:100%; accent-color:var(--accent);">
-      </div>
-      <div
-        style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:10px;">
-        <label class="switch">
-          <input type="checkbox" id="autoSimToggle">
-          <span class="slider-round"></span>
-        </label>
-        <span style="font-size:0.85rem">Auto-Cycle (1 min)</span>
-      </div>
+  <!-- Simulation Mode -->
+  <div class="card">
+    <h2>Simulation Mode</h2>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem;">
+      <label class="switch">
+        <input type="checkbox" id="simToggle">
+        <span class="slider-round"></span>
+      </label>
+      <span id="simStatusText">Disabled</span>
     </div>
+    <div id="simControls" style="opacity:0.5; pointer-events:none;">
+      <label style="display:block; font-size:0.75rem; margin-bottom:5px;">Simulated Distance: <span
+          id="simVal">100</span> cm</label>
+      <input type="range" id="simSlider" min="2" max="400" value="100" style="width:100%; accent-color:var(--accent);">
+    </div>
+    <div
+      style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:10px;">
+      <label class="switch">
+        <input type="checkbox" id="autoSimToggle">
+        <span class="slider-round"></span>
+      </label>
+      <span style="font-size:0.85rem">Auto-Cycle (1 min)</span>
+    </div>
+  </div>
 
-    <!-- Station Settings -->
-    <div class="card">
-      <h2>Station Settings</h2>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <input type="text" id="settingStation" placeholder="Station Name"
-          style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
-        <input type="text" id="settingRiver" placeholder="River Name"
-          style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
-        <button onclick="saveSettings()"
-          style="background:var(--accent); border:none; color:black; font-weight:bold; padding:8px; border-radius:8px; cursor:pointer;">Update
-          Station</button>
-      </div>
-      <p id="settingStatus" style="font-size:0.75rem; margin-top:5px; color:var(--text-muted)"></p>
+  <!-- Station Settings -->
+  <div class="card">
+    <h2>Station Settings</h2>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <input type="text" id="settingStation" placeholder="Station Name"
+        style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+      <input type="text" id="settingRiver" placeholder="River Name"
+        style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+      <button onclick="saveSettings()"
+        style="background:var(--accent); border:none; color:black; font-weight:bold; padding:8px; border-radius:8px; cursor:pointer;">Update
+        Station</button>
     </div>
+    <p id="settingStatus" style="font-size:0.75rem; margin-top:5px; color:var(--text-muted)"></p>
+  </div>
 
-    <!-- Historical Chart -->
-    <div class="card full">
-      <h2>History (last 1 h)</h2>
-      <div class="chart-wrap">
-        <canvas id="histChart"></canvas>
-      </div>
+  <!-- Historical Chart -->
+  <div class="card full">
+    <h2>History (last 1 h)</h2>
+    <div class="chart-wrap">
+      <canvas id="histChart"></canvas>
     </div>
+  </div>
 
   </div>
 
@@ -518,22 +502,6 @@
       if (d.status) {
         badge.textContent = d.status;
         badge.className = 'badge badge-' + d.status.toLowerCase();
-      }
-
-      // Weather
-      const icon = document.getElementById('weatherIcon');
-      const desc = document.getElementById('weatherDesc');
-      const mod = document.getElementById('weatherMod');
-
-      desc.textContent = d.forecast || 'N/A';
-      if (d.rainExpected) {
-        icon.innerHTML = '&#x1F327;&#xFE0F;';
-        mod.textContent = 'Thresholds lowered 20% (rain expected)';
-        mod.classList.add('rain-active');
-      } else {
-        icon.innerHTML = '&#x2600;&#xFE0F;';
-        mod.textContent = 'Thresholds: default';
-        mod.classList.remove('rain-active');
       }
 
       // Additional Metadata

@@ -208,6 +208,9 @@ export default async (req, context) => {
         const historyKey = `history_${stationKey}`;
         let history = await historyStore.get(historyKey, { type: "json" }) || [];
 
+        // Retroactively clean up any existing invalid readings (e.g. -1.0 from sensor errors)
+        history = history.filter(e => e.val !== undefined && e.val > 0);
+
         // Only store valid readings in history (filter out sensor errors: -1, 0, undefined)
         if (isValidReading) {
             history.push({ ts: sensorData.lastSeen, val: distance });
