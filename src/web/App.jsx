@@ -253,6 +253,7 @@ const App = () => {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isWeatherCompact, setIsWeatherCompact] = useState(false);
     const [isSimCompact, setIsSimCompact] = useState(true);
+    const [simWeather, setSimWeather] = useState('sunny'); // 'sunny', 'moderate', 'stormy', 'waterbomb'
     const [cloudApiKey, setCloudApiKey] = useState(localStorage.getItem('flood_api_key') || '');
 
 
@@ -400,8 +401,21 @@ const App = () => {
         }
     };
 
-    const handleSimPush = async (station, distance) => {
-        if (!cloudApiKey.trim()) return; // Don't even try if key missing
+    const handleSimPush = async (station, distance, forceWeather) => {
+        if (!cloudApiKey.trim()) return;
+
+        // Safeguard: For Antwerpen (Real), never override distance from simulator
+        const finalDistance = (station === "Antwerpen") ? (status?.distance || 100) : distance;
+        const weatherToUse = forceWeather || simWeather;
+
+        const weatherMap = {
+            sunny: { forecast: "Simulation: Clear", rain: false },
+            moderate: { forecast: "Simulation: Moderate Rain", rain: true },
+            stormy: { forecast: "Simulation: Stormy / Heavy", rain: true },
+            waterbomb: { forecast: "Simulation: Waterbomb", rain: true }
+        };
+
+        const w = weatherMap[weatherToUse] || weatherMap.sunny;
 
         try {
             const res = await fetch(`/.netlify/functions/push-status`, {
@@ -411,18 +425,22 @@ const App = () => {
                     'Authorization': `Bearer ${cloudApiKey.trim()}`,
                     'x-api-key': cloudApiKey.trim()
                 },
-
                 body: JSON.stringify({
                     station,
-                    distance: distance,
-                    warning: 30.0,
-                    alarm: 15.0,
-                    status: distance <= 15.0 ? 'ALARM' : (distance <= 30.0 ? 'WARNING' : 'NORMAL'),
-                    forecast: "Simulation Mode",
-                    rainExpected: false
+                    distance: finalDistance,
+                    warning: parseFloat(localWarning),
+                    alarm: parseFloat(localAlarm),
+                    status: finalDistance <= parseFloat(localAlarm) ? 'ALARM' : (finalDistance <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
+                    forecast: w.forecast,
+                    rainExpected: w.rain,
+                    intervals: localIntervals
                 })
             });
-            if (!res.ok) throw new Error('Push failed');
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Simulation push failed: ${errorText}`);
+                throw new Error('Push failed');
+            }
             fetchStatus();
         } catch (e) {
             console.error("Simulation push failed", e);
@@ -938,22 +956,66 @@ const App = () => {
                                             </div>
 
                                             <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                    <span>{t('virtual_distance')}</span>
-                                                    <span className="text-xl font-black text-purple-400 monospace">{simDistance}<span className="text-[10px] ml-0.5">cm</span></span>
+
+                                                {/* Weather Selection */}
+                                                <div className="space-y-3 pb-2">
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('weather_condition')}</span>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {[
+                                                            { id: 'sunny', label: t('sunny'), icon: Sun },
+                                                            { id: 'moderate', label: t('moderate'), icon: CloudRain },
+                                                            { id: 'stormy', label: t('stormy'), icon: CloudLightning },
+                                                            { id: 'waterbomb', label: t('waterbomb'), icon: Waves }
+                                                        ].map(w => (
+                                                            <button
+                                                                key={w.id}
+                                                                onClick={() => {
+                                                                    setSimWeather(w.id);
+                                                                    handleSimPush(selectedStation, simDistance, w.id);
+                                                                }}
+                                                                className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
+                                                                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                                                                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
+                                                                    }`}
+                                                            >
+                                                                <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
+                                                                <span className="text-[10px] font-black uppercase tracking-tight">{w.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                                <div className="px-2">
-                                                    <input
-                                                        type="range"
-                                                        min="2"
-                                                        max="400"
-                                                        value={simDistance}
-                                                        onChange={(e) => setSimDistance(parseInt(e.target.value))}
-                                                        onMouseUp={() => handleSimPush(selectedStation, simDistance)}
-                                                        onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
-                                                        className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
-                                                    />
+
+                                                <div className={`space-y-4 ${selectedStation === "Antwerpen" ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                                                    <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                        <span>{t('virtual_distance')}</span>
+                                                        <span className="text-xl font-black text-purple-400 monospace">
+                                                            {(selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance)}
+                                                            <span className="text-[10px] ml-0.5">cm</span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="px-2">
+                                                        <input
+                                                            type="range"
+                                                            min="2"
+                                                            max="400"
+                                                            disabled={selectedStation === "Antwerpen"}
+                                                            value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
+                                                            onChange={(e) => setSimDistance(parseInt(e.target.value))}
+                                                            onMouseUp={() => handleSimPush(selectedStation, simDistance)}
+                                                            onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
+                                                            className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
+                                                        />
+                                                    </div>
                                                 </div>
+
+                                                {selectedStation === "Antwerpen" && (
+                                                    <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex items-center gap-3">
+                                                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500/60" />
+                                                        <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-tight uppercase leading-none">
+                                                            {t('real_station_safeguard')}
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
                                                     <div className="flex items-start gap-3">

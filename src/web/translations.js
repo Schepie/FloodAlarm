@@ -51,7 +51,9 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "window",
-        battery_warning: "(battery drains faster if measurement frequency increases)"
+        battery_warning: "(battery drains faster if measurement frequency increases)",
+        weather_condition: "Weather Condition",
+        real_station_safeguard: "Real Station: Distance simulation disabled to protect live data."
     },
     nl: {
         title: "Overstromingsmonitor",
@@ -105,7 +107,9 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "venster",
-        battery_warning: "(batterij raakt sneller leeg bij hogere meetfrequentie)"
+        battery_warning: "(batterij raakt sneller leeg bij hogere meetfrequentie)",
+        weather_condition: "Weersomstandigheden",
+        real_station_safeguard: "Echt Station: Afstandssimulatie uitgeschakeld om live data te beschermen."
     },
     fr: {
         title: "Moniteur d'Inondation",
@@ -159,7 +163,9 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "fenêtre",
-        battery_warning: "(la batterie se vide plus rapidement si la fréquence de mesure augmente)"
+        battery_warning: "(la batterie se vide plus rapidement si la fréquence de mesure augmente)",
+        weather_condition: "Condition Météo",
+        real_station_safeguard: "Station Réelle : Simulation de distance désactivée pour protéger les données en direct."
     },
     de: {
         title: "Hochwassermonitor",
@@ -213,6 +219,8 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "Fenster",
-        battery_warning: "(Batterie entlädt sich schneller, wenn die Messfrequenz erhöht wird)"
+        battery_warning: "(Batterie entlädt sich schneller, wenn die Messfrequenz erhöht wird)",
+        weather_condition: "Wetterlage",
+        real_station_safeguard: "Echte Station: Distanzsimulation zum Schutz der Live-Daten deaktiviert."
     }
 };

@@ -105,11 +105,22 @@ export default async (req, context) => {
 
         if (status === 'ALARM') {
             nextInterval = userIntervals.waterbomb * 60;
-        } else if (status === 'WARNING' || rainExpected) {
+        } else if (status === 'WARNING') {
             nextInterval = userIntervals.stormy * 60;
-        } else if (forecast && (forecast.toLowerCase().includes('rain') || forecast.toLowerCase().includes('drizzle'))) {
-            nextInterval = userIntervals.moderate * 60;
+        } else if (forecast && forecast.toLowerCase().includes('waterbomb')) {
+            nextInterval = userIntervals.waterbomb * 60;
+        } else if (forecast && (forecast.toLowerCase().includes('stormy') || forecast.toLowerCase().includes('heavy'))) {
+            nextInterval = userIntervals.stormy * 60;
+        } else if (rainExpected || (forecast && (forecast.toLowerCase().includes('rain') || forecast.toLowerCase().includes('drizzle')))) {
+            // General rain or moderate rain
+            nextInterval = (forecast && forecast.toLowerCase().includes('moderate')) ? userIntervals.moderate * 60 : userIntervals.stormy * 60;
+
+            // If it's real rainExpected (from OWM), use stormy
+            if (rainExpected && !forecast.toLowerCase().includes('simulation')) {
+                nextInterval = userIntervals.stormy * 60;
+            }
         }
+
 
         await store.setJSON("latest_status", sensorData);
         await store.setJSON("stations_data", stations);
