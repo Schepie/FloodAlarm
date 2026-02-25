@@ -359,13 +359,18 @@ const App = () => {
     }, [allStations]);
 
     const handleSaveSettings = async () => {
+        if (!cloudApiKey.trim()) {
+            alert('Please enter your Cloud API Key in the settings first. You can find it in your Config.h (CLOUD_API_KEY).');
+            return;
+        }
+
         try {
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': cloudApiKey,
-                    'x-api-key': cloudApiKey
+                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
+                    'x-api-key': cloudApiKey.trim()
                 },
 
                 body: JSON.stringify({
@@ -396,13 +401,15 @@ const App = () => {
     };
 
     const handleSimPush = async (station, distance) => {
+        if (!cloudApiKey.trim()) return; // Don't even try if key missing
+
         try {
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': cloudApiKey,
-                    'x-api-key': cloudApiKey
+                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
+                    'x-api-key': cloudApiKey.trim()
                 },
 
                 body: JSON.stringify({
