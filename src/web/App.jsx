@@ -577,7 +577,9 @@ const App = () => {
                                     <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
                                         <CloudSun className={`w-4 h-4 text-amber-400 ${isWeatherCompact ? '' : 'animate-pulse'}`} />
                                     </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-amber-500">{t('weather')}</span>
+                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-amber-500">
+                                        {selectedStation || t('belgium')}
+                                    </span>
 
                                     {isWeatherCompact && (
                                         <div className="flex items-center gap-4 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
@@ -593,14 +595,7 @@ const App = () => {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    {!isWeatherCompact && (
-                                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 rounded-full border border-slate-700/50">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                {selectedStation || t('belgium')}
-                                            </span>
-                                        </div>
-                                    )}
+
                                     {isWeatherCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
                                 </div>
                             </button>
@@ -872,7 +867,9 @@ const App = () => {
                                     <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
                                         <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
                                     </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">SIMULATOR</span>
+                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
+                                        {selectedStation} SIMULATOR
+                                    </span>
 
                                     {isSimCompact && isSimActive && (
                                         <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
