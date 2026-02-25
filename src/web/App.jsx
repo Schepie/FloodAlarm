@@ -1025,14 +1025,7 @@ const App = () => {
                             initial={{ y: "100%", opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: "100%", opacity: 0 }}
-                            drag="x"
-                            dragConstraints={{ left: 0, right: 0 }}
-                            dragElastic={0.4}
-                            onDragEnd={(e, { offset, velocity }) => {
-                                if (Math.abs(offset.x) > 100 || Math.abs(velocity.x) > 500) {
-                                    setIsSettingsOpen(false);
-                                }
-                            }}
+
                             onClick={(e) => e.stopPropagation()}
                             className="bg-slate-900 border-t border-slate-800 w-full h-full overflow-hidden flex flex-col fixed inset-0 z-50 pt-safe"
                         >
@@ -1050,10 +1043,7 @@ const App = () => {
                                     </button>
                                 </div>
 
-                                {/* Swipe Indicator */}
-                                <div className="flex justify-center mb-2">
-                                    <div className="w-12 h-1.5 bg-slate-800 rounded-full opacity-50" />
-                                </div>
+
 
                                 <div className="flex-1 overflow-y-auto px-8 pb-12 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent touch-pan-y">
                                     <div className="space-y-8">
