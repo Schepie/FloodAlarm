@@ -364,7 +364,8 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': cloudApiKey
+                    'Authorization': cloudApiKey,
+                    'x-api-key': cloudApiKey
                 },
 
                 body: JSON.stringify({
@@ -378,7 +379,10 @@ const App = () => {
                     intervals: localIntervals
                 })
             });
-            if (!res.ok) throw new Error('Save failed');
+            if (!res.ok) {
+                console.error(`Save failed with status ${res.status}`);
+                throw new Error('Save failed');
+            }
             localStorage.setItem('flood_api_key', cloudApiKey);
             setIsSettingsOpen(false);
             fetchStatus();
@@ -394,7 +398,8 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': cloudApiKey
+                    'Authorization': cloudApiKey,
+                    'x-api-key': cloudApiKey
                 },
 
                 body: JSON.stringify({

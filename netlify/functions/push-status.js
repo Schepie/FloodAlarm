@@ -1,18 +1,41 @@
-import { getStore } from "@netlify/blobs";
-
 export default async (req, context) => {
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    };
+
+    if (req.method === 'OPTIONS') {
+        return new Response('OK', { headers: corsHeaders });
+    }
+
     if (req.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405 });
+        return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
     }
 
     // Security check
     const url = new URL(req.url);
-    const authHeader = req.headers.get('authorization') || url.searchParams.get('key');
+    let authHeader = req.headers.get('authorization') ||
+        req.headers.get('x-api-key') ||
+        url.searchParams.get('key') || "";
+
+    // Support Bearer token format
+    if (authHeader.startsWith('Bearer ')) {
+        authHeader = authHeader.substring(7);
+    }
+
+    if (!process.env.FLOOD_API_KEY) {
+        console.error("[Auth] CRITICAL: FLOOD_API_KEY is not set in Netlify environment variables!");
+    }
+
     const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
 
+
     if (authHeader !== SECRET_KEY) {
-        return new Response('Unauthorized', { status: 401 });
+        console.warn(`[Auth] Unauthorized access attempt. Received: ${authHeader.substring(0, 4)}...`);
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
     }
+
 
 
     try {
@@ -93,13 +116,14 @@ export default async (req, context) => {
             nextInterval: nextInterval
         }), {
             status: 200,
-            headers: { "Content-Type": "application/json" }
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
 
     } catch (error) {
         return new Response(JSON.stringify({ error: 'Update failed', details: error.message }), {
             status: 400,
-            headers: { "Content-Type": "application/json" }
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
     }
+
 };
