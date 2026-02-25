@@ -232,6 +232,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 };
 
 const App = () => {
+    const lastSimPush = React.useRef(0);
     const [allStations, setAllStations] = useState({});
     const [selectedStation, setSelectedStation] = useState("Antwerpen");
     const [isOffline, setIsOffline] = useState(false);
@@ -268,7 +269,7 @@ const App = () => {
         if (!station) return;
         setIsHistoryLoading(true);
         try {
-            const res = await fetch(`/.netlify/functions/get-history?station=${station}`);
+            const res = await fetch(`/.netlify/functions/get-history?station=${station}&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 setStationHistory(data);
@@ -301,9 +302,15 @@ const App = () => {
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch(`/.netlify/functions/get-status`);
+            const res = await fetch(`/.netlify/functions/get-status?t=${Date.now()}`);
             if (!res.ok) throw new Error('Cloud unreachable');
             const data = await res.json();
+
+            // Ignore fetch if we just pushed simulator data (give edge blobs 5s to sync)
+            if (Date.now() - lastSimPush.current < 5000) {
+                console.log("[Sync] Ignoring fetchStatus to prevent stale blob overwrite");
+                return;
+            }
 
             // Remap cloud keys (now lowercase) back to display-name keys so all
             // existing allStations[selectedStation] lookups keep working.
@@ -475,6 +482,7 @@ const App = () => {
         const w = weatherMap[weatherToUse] || weatherMap.sunny;
 
         try {
+            lastSimPush.current = Date.now();
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
