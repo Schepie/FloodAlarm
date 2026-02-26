@@ -362,7 +362,7 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'change_me_later'
+                    'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
                 },
                 body: JSON.stringify({
                     station: selectedStation,
@@ -389,7 +389,7 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'change_me_later'
+                    'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
                 },
                 body: JSON.stringify({
                     station,

@@ -5,17 +5,18 @@ export default async (req, context) => {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    // Security check
-    const url = new URL(req.url);
-    const authHeader = req.headers.get('authorization') || url.searchParams.get('key');
-    const SECRET_KEY = process.env.FLOOD_API_KEY || "change_me_later";
-
-    if (authHeader !== SECRET_KEY) {
-        return new Response('Unauthorized', { status: 401 });
-    }
-
     try {
         const body = await req.json();
+
+        // Security check
+        const url = new URL(req.url);
+        const authHeader = req.headers.get('authorization') || url.searchParams.get('key') || body.key;
+        const SECRET_KEY = process.env.FLOOD_API_KEY || "nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d";
+
+        if (authHeader !== SECRET_KEY) {
+            return new Response('Unauthorized: API Key mismatch.', { status: 401 });
+        }
+
         const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen" } = body;
 
         const sensorData = {

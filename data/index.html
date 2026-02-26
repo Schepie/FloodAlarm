@@ -456,7 +456,31 @@
       }
 
       // Update timestamp
-      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+      const nowStr = new Date().toLocaleTimeString();
+      document.getElementById('lastUpdate').textContent = nowStr;
+
+      // Sync Graph in Real-time
+      if (typeof chart !== 'undefined' && chart.data && d.distance !== undefined && d.distance > 0) {
+        const hhmm = nowStr.split(':').slice(0, 2).join(':');
+
+        // Check if we already have a point for this exact minute to avoid overcrowding
+        const lastLabel = chart.data.labels[chart.data.labels.length - 1];
+        if (lastLabel !== hhmm) {
+          chart.data.labels.push(hhmm);
+          chart.data.datasets[0].data.push(d.distance);
+
+          // Keep at most 144 entries (24h at 10-min, or ~5h at 2-min)
+          if (chart.data.labels.length > 144) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+          }
+          chart.update('none'); // silent update
+        } else {
+          // Update the very last point if it's the same minute
+          chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1] = d.distance;
+          chart.update('none');
+        }
+      }
     }
 
     // ─── Simulation ───────────────────────────────────────────────────────────
@@ -493,9 +517,6 @@
     simSlider.onchange = () => {
       sendSim();
     };
-
-    connectWS();
-    fetchStatus();
 
     // ─── Historical Chart ─────────────────────────────────────────────────────
     const ctx = document.getElementById('histChart').getContext('2d');
@@ -568,13 +589,18 @@
 
           chart.data.labels = labels;
           chart.data.datasets[0].data = data;
+          chart.update();
           document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
         })
         .catch(err => console.error('History fetch error:', err));
     }
 
-    // Initial load + refresh every 10 min
+    // Initial load
     fetchHistory();
+    // Start network
+    connectWS();
+    fetchStatus();
+    // Refresh every 10 min
     setInterval(fetchHistory, 600000);
   </script>
 </body>
