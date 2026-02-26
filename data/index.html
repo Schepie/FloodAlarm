@@ -611,23 +611,20 @@
       sendSim();
     };
 
-<<<<<<< HEAD
-=======
     const autoSimToggle = document.getElementById('autoSimToggle');
-    autoSimToggle.onchange = () => {
-      const formData = new FormData();
-      formData.append('enabled', autoSimToggle.checked);
-      fetch('/api/autosim', {
-        method: 'POST',
-        body: formData
-      }).catch(err => console.error('AutoSim error:', err));
-    };
+    if (autoSimToggle) {
+      autoSimToggle.onchange = () => {
+        const formData = new FormData();
+        formData.append('enabled', autoSimToggle.checked);
+        fetch('/api/autosim', {
+          method: 'POST',
+          body: formData
+        }).catch(err => console.error('AutoSim error:', err));
+      };
+    }
 
     connectWS();
-
     fetchStatus();
-
->>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
     // ─── Historical Chart ─────────────────────────────────────────────────────
     const ctx = document.getElementById('histChart').getContext('2d');
     const chart = new Chart(ctx, {
@@ -723,19 +720,9 @@
         .catch(err => console.error('History fetch error:', err));
     }
 
-<<<<<<< HEAD
-    // Initial load
-    fetchHistory();
-    // Start network
-    connectWS();
-    fetchStatus();
-    // Refresh every 10 min
-    setInterval(fetchHistory, 600000);
-=======
     // Initial load + refresh every 1 min
     fetchHistory();
     setInterval(fetchHistory, 60000);
->>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
   </script>
 </body>
 

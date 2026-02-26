@@ -94,21 +94,6 @@ export default async (req, context) => {
         return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
     }
 
-<<<<<<< HEAD
-    try {
-        const body = await req.json();
-
-        // Security check
-        const url = new URL(req.url);
-        const authHeader = req.headers.get('authorization') || url.searchParams.get('key') || body.key;
-        const SECRET_KEY = process.env.FLOOD_API_KEY || "nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d";
-
-        if (authHeader !== SECRET_KEY) {
-            return new Response('Unauthorized: API Key mismatch.', { status: 401 });
-        }
-
-        const { distance, warning, alarm, status, forecast, rainExpected, station = "Antwerpen" } = body;
-=======
     // Security check
     const url = new URL(req.url);
     let authHeader = req.headers.get('authorization') ||
@@ -186,7 +171,6 @@ export default async (req, context) => {
         }
 
         const isValidReading = distance !== undefined && distance > 0;
->>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
 
         const sensorData = {
             // Only update distance if reading is valid — keep last known good value otherwise

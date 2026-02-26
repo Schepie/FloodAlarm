@@ -416,12 +416,8 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-<<<<<<< HEAD
-                    'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
-=======
                     'Authorization': `Bearer ${cleanKey}`,
                     'x-api-key': cleanKey
->>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
                 },
 
                 body: JSON.stringify({
@@ -497,12 +493,8 @@ const App = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-<<<<<<< HEAD
-                    'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
-=======
                     'Authorization': `Bearer ${cloudApiKey.trim()}`,
                     'x-api-key': cloudApiKey.trim()
->>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
                 },
                 body: JSON.stringify({
                     station,
