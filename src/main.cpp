@@ -26,22 +26,19 @@ float warningThreshold = DEFAULT_WARNING_CM;
 float alarmThreshold   = DEFAULT_ALARM_CM;
 bool  buzzerActive     = false;
 
-// ─── Simulation ─────────────────────────────────────────────────────────────
-bool  simulationActive = false;
-float simulatedDistance = 100.0f; // Start at a valid mid-range value — 0 causes a push of -1
+// ─── Manual Sync Control ────────────────────────────────────────────────────
+bool volatile pendingManualSync = false;
 
-void setSimulation(bool active, float distance) {
-    simulationActive = active;
-    simulatedDistance = distance;
-    Serial.printf("[Sim] Mode: %s, Distance: %.1f\n", active ? "ON" : "OFF", distance);
+void triggerManualSync() {
+    pendingManualSync = true;
 }
 
+// ─── Timing & Intervals ──────────────────────────────────────────────────────
 unsigned long lastSensorRead      = 0;
 unsigned long lastLogTime         = 0;
 unsigned long lastWeatherPoll     = 0;
 unsigned long lastWSBroadcast     = 0;
 unsigned long lastNotificationTime = 0;
-// Measurement Settings
 uint32_t currentIntervalMs = SENSOR_READ_INTERVAL_MS;
 
 void setMeasurementInterval(uint32_t seconds) {
@@ -51,7 +48,9 @@ void setMeasurementInterval(uint32_t seconds) {
     }
 }
 
-bool volatile pendingManualSync = false;
+// ─── Simulation ─────────────────────────────────────────────────────────────
+bool  simulationActive = false;
+float simulatedDistance = 100.0f;
 unsigned long lastAutoSimUpdate   = 0;
 bool          autoSimEnabled      = false;
 
@@ -59,8 +58,11 @@ void setAutoSimulation(bool enabled) {
     autoSimEnabled = enabled;
 }
 
-void triggerManualSync() {
-    pendingManualSync = true;
+void setSimulation(bool active, float distance) {
+    simulationActive = active;
+    simulatedDistance = distance;
+    Serial.printf("[Sim] Mode: %s, Distance: %.1f\n", active ? "ON" : "OFF", distance);
+    triggerManualSync(); // Force immediate sync when toggling/changing simulation
 }
 
 
@@ -166,6 +168,7 @@ void loop() {
         simulationActive = true;
         simulatedDistance = 20.0f + (random(0, 1800) / 10.0f); // 20.0cm to 200.0cm
         Serial.printf("[AutoSim] Next distance: %.1f cm\n", simulatedDistance);
+        triggerManualSync(); // Ensure the 1-minute auto-cycle value is pushed immediately
     }
 
 
