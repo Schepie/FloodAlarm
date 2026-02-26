@@ -8,10 +8,15 @@
 #include <LittleFS.h>
 #include <Preferences.h>
 
-
 extern void setSimulation(bool active, float distance);
 extern void setAutoSimulation(bool enabled);
 extern void triggerManualSync();
+
+// Global migration flags from main.cpp
+extern bool volatile pendingMigration;
+extern String migOldStation;
+extern String migNewStation;
+extern String migRiver;
 
 extern float currentDistance;
 extern float warningThreshold;
@@ -154,9 +159,13 @@ void WebHandler::begin(AsyncWebServer &server, AsyncWebSocket &ws) {
       prefs.begin("wifi", false);
       String oldStation = prefs.getString("station", "Antwerpen");
 
-      // Trigger Cloud Migration if name changed
+      // Trigger Cloud Migration if name changed (Deferred to main loop)
       if (newStation != oldStation) {
-        CloudSync::migrateStation(oldStation, newStation, newRiver);
+        migOldStation = oldStation;
+        migNewStation = newStation;
+        migRiver = newRiver;
+        pendingMigration = true;
+        Serial.println("[Web] Migration queued for main loop.");
       }
 
       prefs.putString("station", newStation);
