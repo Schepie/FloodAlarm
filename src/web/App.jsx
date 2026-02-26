@@ -905,7 +905,7 @@ const App = () => {
                                                                         : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
                                                                         } ${isOfflineStation ? 'opacity-60 grayscale-[0.5]' : ''}`}
                                                                 >
-                                                                    <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center justify-between w-full pr-10">
                                                                         <div className="flex items-center gap-3">
                                                                             <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' && !isOfflineStation ? 'animate-pulse' : ''}`} />
                                                                             <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
@@ -921,7 +921,7 @@ const App = () => {
                                                                     </div>
 
                                                                     {/* Last Updated Info */}
-                                                                    <div className="flex items-center justify-between w-full pl-5">
+                                                                    <div className="flex items-center justify-between w-full pl-5 pr-10">
                                                                         <div className="flex items-center gap-1.5">
                                                                             <History className={`w-3 h-3 ${isOfflineStation ? 'text-red-500' : 'text-slate-600'}`} />
                                                                             <span className={`text-[10px] font-bold tracking-tight ${isOfflineStation
@@ -1038,7 +1038,7 @@ const App = () => {
                                                                         setStationToDelete(name);
                                                                         setIsDeleteConfirmOpen(true);
                                                                     }}
-                                                                    className="absolute top-3 right-10 p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover/station:opacity-100 transition-all active:scale-90"
+                                                                    className="absolute top-3 right-2 p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover/station:opacity-100 transition-all active:scale-90"
                                                                     title={t('delete_station')}
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
