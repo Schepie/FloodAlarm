@@ -19,9 +19,13 @@ import {
     Wind,
     Thermometer,
     Cloud,
+    Sun,
+    CloudLightning,
     ShieldAlert,
     ShieldCheck,
-    AlertOctagon
+    AlertOctagon,
+    Timer,
+    Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { translations } from './translations.js';
@@ -229,6 +233,7 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 };
 
 const App = () => {
+    const lastSimPush = React.useRef(0);
     const [allStations, setAllStations] = useState({});
     const [selectedStation, setSelectedStation] = useState("Antwerpen");
     const [isOffline, setIsOffline] = useState(false);
@@ -253,16 +258,19 @@ const App = () => {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isWeatherCompact, setIsWeatherCompact] = useState(false);
     const [isSimCompact, setIsSimCompact] = useState(true);
+    const [simWeather, setSimWeather] = useState('sunny'); // 'sunny', 'moderate', 'stormy', 'waterbomb'
+    const [cloudApiKey, setCloudApiKey] = useState(localStorage.getItem('flood_api_key') || '');
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [stationToDelete, setStationToDelete] = useState(null);
+
 
     const t = (key) => translations[language][key] || key;
-
-    const STATIONS = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
 
     const fetchHistory = async (station) => {
         if (!station) return;
         setIsHistoryLoading(true);
         try {
-            const res = await fetch(`/.netlify/functions/get-history?station=${station}`);
+            const res = await fetch(`/.netlify/functions/get-history?station=${station}&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 setStationHistory(data);
@@ -277,10 +285,16 @@ const App = () => {
     useEffect(() => {
         if (selectedStation) {
             fetchHistory(selectedStation);
+
+            // Sync simulator distance with current cloud value if it exists
+            const currentStat = allStations[selectedStation];
+            if (currentStat && currentStat.distance !== undefined && selectedStation !== "Antwerpen") {
+                setSimDistance(currentStat.distance);
+            }
         } else {
             setStationHistory([]);
         }
-    }, [selectedStation]);
+    }, [selectedStation, allStations]);
 
     const sendNotification = (title, body) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -289,12 +303,30 @@ const App = () => {
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch(`/.netlify/functions/get-status`);
+            const res = await fetch(`/.netlify/functions/get-status?t=${Date.now()}`);
             if (!res.ok) throw new Error('Cloud unreachable');
             const data = await res.json();
 
-            setAllStations(data);
-            const current = data[selectedStation];
+            // Ignore fetch if we just pushed simulator data (give edge blobs 5s to sync)
+            if (Date.now() - lastSimPush.current < 5000) {
+                console.log("[Sync] Ignoring fetchStatus to prevent stale blob overwrite");
+                return;
+            }
+
+            // Remap cloud keys (now lowercase) back to display-name keys so all
+            // existing allStations[selectedStation] lookups keep working.
+            const STATION_DISPLAY = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
+            const normalized = { ...data }; // keep Belgium etc.
+            for (const displayName of STATION_DISPLAY) {
+                const lk = displayName.toLowerCase();
+                if (data[lk]) {
+                    normalized[displayName] = data[lk];
+                    delete normalized[lk];
+                }
+            }
+
+            setAllStations(normalized);
+            const current = normalized[selectedStation];
 
             if (current && !isSettingsOpen) {
                 setLocalWarning(current.warning);
@@ -305,8 +337,8 @@ const App = () => {
             }
 
             // Global offline check (based on Antwerpen - our real ESP)
-            if (data["Antwerpen"]) {
-                setIsOffline(checkIsOffline(data["Antwerpen"]));
+            if (normalized["Antwerpen"]) {
+                setIsOffline(checkIsOffline(normalized["Antwerpen"]));
             }
 
         } catch (e) {
@@ -357,13 +389,41 @@ const App = () => {
     }, [allStations]);
 
     const handleSaveSettings = async () => {
+        if (!cloudApiKey.trim()) {
+            alert('Please enter your Cloud API Key in the settings first. You can find it in your Config.h (CLOUD_API_KEY).');
+            return;
+        }
+
+        if (!selectedStation) {
+            alert('Please select a specific measuring station from the river list before saving settings.');
+            return;
+        }
+
+        let cleanKey = cloudApiKey.trim();
+        // If user accidentally pasted the whole #define line from Config.h
+        if (cleanKey.includes('#define') || cleanKey.includes('"')) {
+            const match = cleanKey.match(/"([^"]+)"/);
+            if (match) cleanKey = match[1];
+            else {
+                // If no quotes, just split and take last part if it looks like #define
+                const parts = cleanKey.split(/\s+/);
+                if (parts.length > 2 && parts[0] === '#define') cleanKey = parts[2];
+            }
+        }
+
         try {
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+<<<<<<< HEAD
                     'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
+=======
+                    'Authorization': `Bearer ${cleanKey}`,
+                    'x-api-key': cleanKey
+>>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
                 },
+
                 body: JSON.stringify({
                     station: selectedStation,
                     distance: status?.distance || 100,
@@ -372,37 +432,108 @@ const App = () => {
                     status: (status?.distance || 100) <= parseFloat(localAlarm) ? 'ALARM' : ((status?.distance || 100) <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
                     forecast: status?.forecast || "Updated settings",
                     rainExpected: status?.rainExpected || false,
-                    intervals: localIntervals
+                    intervals: localIntervals,
+                    isUiUpdate: true
                 })
             });
-            if (!res.ok) throw new Error('Save failed');
+            console.log(`[Cloud] Save Payload for station "${selectedStation}":`, {
+                warning: parseFloat(localWarning),
+                alarm: parseFloat(localAlarm),
+                isUiUpdate: true
+            });
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Save failed with status ${res.status}: ${errorText}`);
+                alert(`Cloud Save Error (${res.status}): ${errorText}`);
+                throw new Error('Save failed');
+            }
+
+            localStorage.setItem('flood_api_key', cleanKey);
+            setCloudApiKey(cleanKey);
             setIsSettingsOpen(false);
             fetchStatus();
+
         } catch (e) {
             alert('Failed to save settings to cloud');
         }
     };
 
-    const handleSimPush = async (station, distance) => {
+    useEffect(() => {
+        if (selectedStation) {
+            const current = allStations[selectedStation.toLowerCase().trim()] || allStations[selectedStation];
+            if (current && !isSettingsOpen) {
+                if (current.warning !== undefined) setLocalWarning(current.warning);
+                if (current.alarm !== undefined) setLocalAlarm(current.alarm);
+                if (current.intervals) setLocalIntervals(current.intervals);
+
+                // Also sync simulator distance for virtual stations
+                if (current.distance !== undefined && selectedStation !== "Antwerpen") {
+                    setSimDistance(current.distance);
+                }
+            }
+        }
+    }, [selectedStation, allStations, isSettingsOpen]); // Added isSettingsOpen
+
+    const handleSimPush = async (station, distance, forceWeather) => {
+        if (!cloudApiKey.trim()) return;
+
+        console.log(`[Sim] Pushing to ${station}: ${distance}cm (Force Weather: ${forceWeather || 'None'})`);
+
+        const finalDistance = distance; // Always use the slider value
+        const weatherToUse = forceWeather || simWeather;
+
+        const weatherMap = {
+            sunny: { forecast: "Simulation: Clear", rain: false },
+            moderate: { forecast: "Simulation: Moderate Rain", rain: true },
+            stormy: { forecast: "Simulation: Stormy / Heavy", rain: true },
+            waterbomb: { forecast: "Simulation: Waterbomb", rain: true }
+        };
+
+        const w = weatherMap[weatherToUse] || weatherMap.sunny;
+
         try {
+            lastSimPush.current = Date.now();
             const res = await fetch(`/.netlify/functions/push-status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+<<<<<<< HEAD
                     'Authorization': 'nfp_hHjozGS5UyWGkNTjkyoQVNThqVoudhjRac1d'
+=======
+                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
+                    'x-api-key': cloudApiKey.trim()
+>>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
                 },
                 body: JSON.stringify({
                     station,
-                    distance: distance,
-                    warning: 30.0,
-                    alarm: 15.0,
-                    status: distance <= 15.0 ? 'ALARM' : (distance <= 30.0 ? 'WARNING' : 'NORMAL'),
-                    forecast: "Simulation Mode",
-                    rainExpected: false
+                    distance: finalDistance,
+                    warning: parseFloat(localWarning),
+                    alarm: parseFloat(localAlarm),
+                    status: finalDistance <= parseFloat(localAlarm) ? 'ALARM' : (finalDistance <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
+                    simWeatherTier: weatherToUse,  // cloud uses this to set weather+interval
+                    intervals: localIntervals,
+                    isUiUpdate: true
                 })
             });
-            if (!res.ok) throw new Error('Push failed');
-            fetchStatus();
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Simulation push failed: ${errorText}`);
+                throw new Error('Push failed');
+            }
+
+            const resData = await res.json();
+            if (resData.success && resData.data) {
+                setAllStations(prev => ({
+                    ...prev,
+                    [station]: resData.data
+                }));
+            }
+
+            // Delay history fetch slightly to allow Netlify Edge Blobs to propagate
+            setTimeout(() => {
+                fetchHistory(station);
+            }, 1500);
+
         } catch (e) {
             console.error("Simulation push failed", e);
         }
@@ -414,6 +545,8 @@ const App = () => {
 
         if (active) {
             handleSimPush(selectedStation, distance);
+        } else {
+            handleSimPush(selectedStation, distance, 'sunny');
         }
     };
 
@@ -437,6 +570,41 @@ const App = () => {
             }
         } catch (e) {
             alert('Failed to connect to cloud notification service');
+        }
+    };
+
+    const handleDeleteStation = async () => {
+        if (!stationToDelete || !cloudApiKey.trim()) return;
+
+        try {
+            const res = await fetch(`/.netlify/functions/delete-station`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
+                    'x-api-key': cloudApiKey.trim()
+                },
+                body: JSON.stringify({ station: stationToDelete })
+            });
+
+            if (res.ok) {
+                if (selectedStation === stationToDelete) {
+                    setSelectedStation(null);
+                }
+                setAllStations(prev => {
+                    const next = { ...prev };
+                    delete next[stationToDelete];
+                    return next;
+                });
+                setIsDeleteConfirmOpen(false);
+                setStationToDelete(null);
+            } else {
+                const err = await res.text();
+                alert(`Failed to delete: ${err}`);
+            }
+        } catch (e) {
+            console.error("Delete failed", e);
+            alert('Failed to connect to cloud service');
         }
     };
 
@@ -591,11 +759,42 @@ const App = () => {
                                                 <CloudRain className="w-3.5 h-3.5 text-sky-400" />
                                                 <span className="text-xs font-black text-slate-200">{status?.weather?.rainProb || '--'}%</span>
                                             </div>
+                                            {(() => {
+                                                const iv = localIntervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
+                                                // When simulator is active, use simWeather directly — real ESP overwrites cloud forecast continuously
+                                                let tier;
+                                                if (isSimActive) {
+                                                    tier = simWeather; // 'sunny' | 'moderate' | 'stormy' | 'waterbomb'
+                                                } else {
+                                                    const fc = (status?.forecast || '').toLowerCase();
+                                                    if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
+                                                        tier = 'waterbomb';
+                                                    } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
+                                                        tier = 'stormy';
+                                                    } else if (status?.rainExpected || fc.includes('rain')) {
+                                                        tier = 'moderate';
+                                                    } else {
+                                                        tier = 'sunny';
+                                                    }
+                                                }
+                                                const mins = iv[tier];
+                                                const colors = {
+                                                    sunny: 'text-emerald-400',
+                                                    moderate: 'text-sky-400',
+                                                    stormy: 'text-orange-400',
+                                                    waterbomb: 'text-red-400'
+                                                };
+                                                return (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Timer className={`w-3.5 h-3.5 ${colors[tier]}`} />
+                                                        <span className={`text-xs font-black ${colors[tier]}`}>{mins}m</span>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3">
-
                                     {isWeatherCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
                                 </div>
                             </button>
@@ -652,181 +851,215 @@ const App = () => {
                         </motion.div>
 
                         {/* Station List */}
-                        <div className="glass-card rounded-3xl p-6 z-10 transition-all">
-                            <button
-                                onClick={() => setExpandedRivers(prev => {
-                                    const nextState = !prev.SCHELDE;
-                                    if (!nextState) setSelectedStation(null);
-                                    return { ...prev, SCHELDE: nextState };
-                                })}
-                                className="flex items-center justify-between w-full mb-0 group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">
-                                        <Droplets className="w-4 h-4 text-sky-400" />
-                                    </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">{t('schelde')}</span>
-                                </div>
-                                {expandedRivers.SCHELDE ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
-                            </button>
-
-                            <AnimatePresence>
-                                {expandedRivers.SCHELDE && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
-                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        className="overflow-hidden"
+                        <div className="glass-card rounded-3xl p-6 z-10 transition-all flex flex-col gap-6">
+                            {Object.entries(
+                                Object.keys(allStations).reduce((acc, name) => {
+                                    if (name === "Belgium" || !name) return acc;
+                                    const r = (allStations[name].river || "SCHELDE").toUpperCase();
+                                    if (!acc[r]) acc[r] = [];
+                                    acc[r].push(name);
+                                    return acc;
+                                }, {})
+                            ).map(([riverName, stationNames]) => (
+                                <div key={riverName} className="flex flex-col">
+                                    <button
+                                        onClick={() => setExpandedRivers(prev => {
+                                            const nextState = !prev[riverName];
+                                            if (!nextState && stationNames.includes(selectedStation)) setSelectedStation(null);
+                                            return { ...prev, [riverName]: nextState };
+                                        })}
+                                        className="flex items-center justify-between w-full mb-0 group border-b border-transparent hover:border-slate-800/50 pb-2"
                                     >
-                                        <div className="flex flex-col gap-2">
-                                            {STATIONS.map(name => {
-                                                const s = allStations[name];
-                                                const isSelected = selectedStation === name;
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">
+                                                <Droplets className="w-4 h-4 text-sky-400" />
+                                            </div>
+                                            <span className="text-sm font-black uppercase tracking-[0.2em] text-sky-500">{t(riverName.toLowerCase()) || riverName}</span>
+                                        </div>
+                                        {expandedRivers[riverName] ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
+                                    </button>
 
-                                                const getStatColor = (stat) => {
-                                                    if (!stat) return 'bg-slate-800';
-                                                    if (name === "Antwerpen" && isOffline) return 'bg-red-500/50';
-                                                    switch (stat.status) {
-                                                        case 'ALARM': return 'bg-red-500';
-                                                        case 'WARNING': return 'bg-orange-500';
-                                                        default: return 'bg-emerald-500';
-                                                    }
-                                                };
+                                    <AnimatePresence>
+                                        {expandedRivers[riverName] && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
+                                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    {stationNames.map(name => {
+                                                        const s = allStations[name];
+                                                        const isSelected = selectedStation === name;
 
-                                                return (
-                                                    <button
-                                                        key={name}
-                                                        onClick={() => setSelectedStation(prev => prev === name ? null : name)}
-                                                        className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 text-left w-full ${isSelected
-                                                            ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
-                                                            : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
-                                                            }`}
-                                                    >
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' ? 'animate-pulse' : ''}`} />
-                                                                <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
-                                                                    {s ? s.distance.toFixed(1) : '--'}
-                                                                    <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                </span>
-                                                                <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
-                                                            </div>
-                                                        </div>
+                                                        const getStatColor = (stat) => {
+                                                            if (!stat) return 'bg-slate-800';
+                                                            if (name === "Antwerpen" && isOffline) return 'bg-red-500/50';
+                                                            switch (stat.status) {
+                                                                case 'ALARM': return 'bg-red-500';
+                                                                case 'WARNING': return 'bg-orange-500';
+                                                                default: return 'bg-emerald-500';
+                                                            }
+                                                        };
 
-                                                        {/* Last Updated Info */}
-                                                        <div className="flex items-center justify-between w-full pl-5">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <History className={`w-3 h-3 ${checkIsOffline(s) ? 'text-red-500' : 'text-slate-600'}`} />
-                                                                <span className={`text-[10px] font-bold tracking-tight ${checkIsOffline(s)
-                                                                    ? 'text-red-500 animate-glow-red'
-                                                                    : 'text-slate-500'
-                                                                    }`}>
-                                                                    {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
-                                                                </span>
-                                                            </div>
-                                                            {s?.isSimulated && (
-                                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
-                                                            )}
-                                                        </div>
+                                                        const isOfflineStation = checkIsOffline(s);
 
-                                                        {/* Historical Graph & Info */}
-                                                        <AnimatePresence>
-                                                            {isSelected && (
-                                                                <motion.div
-                                                                    initial={{ height: 0, opacity: 0 }}
-                                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                                    exit={{ height: 0, opacity: 0 }}
-                                                                    className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
+                                                        return (
+                                                            <div key={name} className="relative group/station">
+                                                                <button
+                                                                    onClick={() => setSelectedStation(prev => prev === name ? null : name)}
+                                                                    className={`flex flex-col p-3 rounded-2xl transition-all border gap-2 text-left w-full ${isSelected
+                                                                        ? 'bg-sky-500/10 border-sky-500/50 shadow-[0_0_20px_rgba(14,165,233,0.1)]'
+                                                                        : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                                                                        } ${isOfflineStation ? 'opacity-60 grayscale-[0.5]' : ''}`}
                                                                 >
-                                                                    {/* Stats Header */}
-                                                                    {(() => {
-                                                                        const filtered = stationHistory.filter(d => {
-                                                                            const diffMin = (new Date() - new Date(d.ts)) / 1000 / 60;
-                                                                            if (timeframe === '1h') return diffMin <= 60;
-                                                                            if (timeframe === '3h') return diffMin <= 180;
-                                                                            if (timeframe === '8h') return diffMin <= 480;
-                                                                            return true; // 24h
-                                                                        });
-                                                                        if (filtered.length === 0) return null;
-
-                                                                        const minVal = Math.min(...filtered.map(d => d.val)).toFixed(1);
-                                                                        const maxVal = Math.max(...filtered.map(d => d.val)).toFixed(1);
-
-                                                                        return (
-                                                                            <div className="flex justify-between items-center px-1">
-                                                                                <div className="flex gap-4">
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('min')}</span>
-                                                                                        <span className="text-sm font-black text-sky-400">
-                                                                                            {minVal}
-                                                                                            <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('max')}</span>
-                                                                                        <span className="text-sm font-black text-slate-200">
-                                                                                            {maxVal}
-                                                                                            <span className="text-[10px] ml-0.5 opacity-50">cm</span>
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded-lg border border-slate-700/50">
-                                                                                    {timeframe} {t('window')}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-
-                                                                    {/* Graph Area */}
-                                                                    <div className="h-48 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
-                                                                        <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
-                                                                            {stationHistory.length} pts
+                                                                    <div className="flex items-center justify-between w-full pr-10">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`w-2 h-2 rounded-full shadow-lg ${getStatColor(s)} ${s?.status !== 'NORMAL' && !isOfflineStation ? 'animate-pulse' : ''}`} />
+                                                                            <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{name}</span>
                                                                         </div>
-                                                                        {isHistoryLoading ? (
-                                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                                <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                                                                            </div>
-                                                                        ) : (
-                                                                            <HistoricalGraph
-                                                                                data={stationHistory}
-                                                                                timeframe={timeframe}
-                                                                                warning={s?.warning || 30}
-                                                                                alarm={s?.alarm || 15}
-                                                                            />
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={`text-sm font-black monospace ${isSelected ? 'text-sky-400' : 'text-slate-500'}`}>
+                                                                                {s ? s.distance.toFixed(1) : '--'}
+                                                                                <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                            </span>
+                                                                            {/* Only show Arrow if not hovering over delete button area */}
+                                                                            <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-0 opacity-100 text-sky-400' : '-translate-x-2 opacity-0'}`} />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Last Updated Info */}
+                                                                    <div className="flex items-center justify-between w-full pl-5 pr-10">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <History className={`w-3 h-3 ${isOfflineStation ? 'text-red-500' : 'text-slate-600'}`} />
+                                                                            <span className={`text-[10px] font-bold tracking-tight ${isOfflineStation
+                                                                                ? 'text-red-500 animate-glow-red'
+                                                                                : 'text-slate-500'
+                                                                                }`}>
+                                                                                {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
+                                                                            </span>
+                                                                        </div>
+                                                                        {s?.isSimulated && (
+                                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
                                                                         )}
                                                                     </div>
 
-                                                                    {/* Timeframe Selector (Now below graph) */}
-                                                                    <div className="flex items-center justify-end gap-1 overflow-x-auto pb-2 scrollbar-hide">
-                                                                        {['1h', '3h', '8h', '24h'].map(tf => (
-                                                                            <button
-                                                                                key={tf}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setTimeframe(tf);
-                                                                                }}
-                                                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${timeframe === tf
-                                                                                    ? 'bg-sky-500 text-[#0f172a] shadow-[0_0_10px_rgba(14,165,233,0.3)]'
-                                                                                    : 'bg-slate-800 text-slate-500 hover:text-slate-300'
-                                                                                    }`}
+                                                                    {/* Historical Graph & Info */}
+                                                                    <AnimatePresence>
+                                                                        {isSelected && (
+                                                                            <motion.div
+                                                                                initial={{ height: 0, opacity: 0 }}
+                                                                                animate={{ height: 'auto', opacity: 1 }}
+                                                                                exit={{ height: 0, opacity: 0 }}
+                                                                                className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col gap-4 w-full"
                                                                             >
-                                                                                {tf}
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                                                                                {/* Stats Header */}
+                                                                                {(() => {
+                                                                                    const filtered = stationHistory.filter(d => {
+                                                                                        const diffMin = (new Date() - new Date(d.ts)) / 1000 / 60;
+                                                                                        if (timeframe === '1h') return diffMin <= 60;
+                                                                                        if (timeframe === '3h') return diffMin <= 180;
+                                                                                        if (timeframe === '8h') return diffMin <= 480;
+                                                                                        return true; // 24h
+                                                                                    });
+                                                                                    if (filtered.length === 0) return null;
+
+                                                                                    const minVal = Math.min(...filtered.map(d => d.val)).toFixed(1);
+                                                                                    const maxVal = Math.max(...filtered.map(d => d.val)).toFixed(1);
+
+                                                                                    return (
+                                                                                        <div className="flex justify-between items-center px-1">
+                                                                                            <div className="flex gap-4">
+                                                                                                <div className="flex flex-col">
+                                                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('min')}</span>
+                                                                                                    <span className="text-sm font-black text-sky-400">
+                                                                                                        {minVal}
+                                                                                                        <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                <div className="flex flex-col">
+                                                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('max')}</span>
+                                                                                                    <span className="text-sm font-black text-slate-200">
+                                                                                                        {maxVal}
+                                                                                                        <span className="text-[10px] ml-0.5 opacity-50">cm</span>
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded-lg border border-slate-700/50">
+                                                                                                {timeframe} {t('window')}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
+
+                                                                                {/* Graph Area */}
+                                                                                <div className="h-48 w-full bg-slate-950/30 rounded-xl border border-slate-800/50 p-2 relative overflow-hidden">
+                                                                                    <div className="absolute top-1 right-2 text-[8px] font-bold text-slate-600 z-10 pointer-events-none">
+                                                                                        {stationHistory.length} pts
+                                                                                    </div>
+                                                                                    {isHistoryLoading ? (
+                                                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                                                            <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <HistoricalGraph
+                                                                                            data={stationHistory}
+                                                                                            timeframe={timeframe}
+                                                                                            warning={s?.warning || 30}
+                                                                                            alarm={s?.alarm || 15}
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* Timeframe Selector (Now below graph) */}
+                                                                                <div className="flex items-center justify-end gap-1 overflow-x-auto pb-2 scrollbar-hide">
+                                                                                    {['1h', '3h', '8h', '24h'].map(tf => (
+                                                                                        <button
+                                                                                            key={tf}
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setTimeframe(tf);
+                                                                                            }}
+                                                                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${timeframe === tf
+                                                                                                ? 'bg-sky-500 text-[#0f172a] shadow-[0_0_10px_rgba(14,165,233,0.3)]'
+                                                                                                : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                                                                                }`}
+                                                                                        >
+                                                                                            {tf}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </button>
+
+                                                                {/* Delete Button - Absolute positioned overlay */}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!cloudApiKey.trim()) {
+                                                                            alert(t('settings_for') + " Cloud API Key!");
+                                                                            setIsSettingsOpen(true);
+                                                                            return;
+                                                                        }
+                                                                        setStationToDelete(name);
+                                                                        setIsDeleteConfirmOpen(true);
+                                                                    }}
+                                                                    className="absolute top-3 right-2 p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover/station:opacity-100 transition-all active:scale-90"
+                                                                    title={t('delete_station')}
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
                         </div>
 
                         {/* Water Level & Forecast Card replaced by Settings & Compact Items */}
@@ -854,100 +1087,142 @@ const App = () => {
 
                     <div className="space-y-6">
                         {/* Simulator */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
-                        >
-                            <button
-                                onClick={() => setIsSimCompact(!isSimCompact)}
-                                className="flex items-center justify-between w-full group"
+                        {selectedStation && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
-                                        <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
-                                    </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
-                                        {selectedStation} SIMULATOR
-                                    </span>
-
-                                    {isSimCompact && isSimActive && (
-                                        <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
-                                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                                {simDistance}cm
-                                            </span>
+                                <button
+                                    onClick={() => setIsSimCompact(!isSimCompact)}
+                                    className="flex items-center justify-between w-full group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
+                                            <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {!isSimCompact && (
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); handleSimChange(!isSimActive, simDistance); }}
-                                            className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                        >
-                                            <div className={`bg-white w-3 h-3 rounded-full transition-transform ${isSimActive ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </div>
-                                    )}
-                                    {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                                </div>
-                            </button>
+                                        <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
+                                            {selectedStation} SIMULATOR
+                                        </span>
 
-                            <AnimatePresence>
-                                {!isSimCompact && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
-                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                        className="overflow-hidden"
-                                    >
-                                        <div className={`space-y-6 transition-opacity duration-300`}>
-                                            <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
-                                                    <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                                        {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    onClick={() => handleSimChange(!isSimActive, simDistance)}
-                                                    className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                                >
-                                                    <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                </div>
+                                        {isSimCompact && isSimActive && (
+                                            <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
+                                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                    {simDistance}cm
+                                                </span>
                                             </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                                    </div>
+                                </button>
 
-                                            <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                    <span>{t('virtual_distance')}</span>
-                                                    <span className="text-xl font-black text-purple-400 monospace">{simDistance}<span className="text-[10px] ml-0.5">cm</span></span>
-                                                </div>
-                                                <div className="px-2">
-                                                    <input
-                                                        type="range"
-                                                        min="2"
-                                                        max="400"
-                                                        value={simDistance}
-                                                        onChange={(e) => setSimDistance(parseInt(e.target.value))}
-                                                        onMouseUp={() => handleSimPush(selectedStation, simDistance)}
-                                                        onTouchEnd={() => handleSimPush(selectedStation, simDistance)}
-                                                        className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
-                                                    />
+                                <AnimatePresence>
+                                    {!isSimCompact && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className={`space-y-6 transition-opacity duration-300`}>
+                                                <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
+                                                        <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                            {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        onClick={() => handleSimChange(!isSimActive, simDistance)}
+                                                        className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
+                                                    >
+                                                        <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </div>
                                                 </div>
 
-                                                <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
-                                                    <div className="flex items-start gap-3">
-                                                        <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
-                                                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
-                                                            {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
-                                                        </p>
+                                                <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+
+                                                    {/* Weather Selection */}
+                                                    <div className="space-y-3 pb-2">
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('weather_condition')}</span>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {[
+                                                                { id: 'sunny', label: t('sunny'), icon: Sun },
+                                                                { id: 'moderate', label: t('moderate'), icon: CloudRain },
+                                                                { id: 'stormy', label: t('stormy'), icon: CloudLightning },
+                                                                { id: 'waterbomb', label: t('waterbomb'), icon: Waves }
+                                                            ].map(w => (
+                                                                <button
+                                                                    key={w.id}
+                                                                    onClick={() => {
+                                                                        setSimWeather(w.id);
+                                                                        handleSimPush(selectedStation, simDistance, w.id);
+                                                                    }}
+                                                                    className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
+                                                                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                                                                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
+                                                                        }`}
+                                                                >
+                                                                    <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
+                                                                    <span className="text-[10px] font-black uppercase tracking-tight">{w.label}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`space-y-4 ${selectedStation === "Antwerpen" ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                                                        <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                            <span>{t('virtual_distance')}</span>
+                                                            <span className="text-xl font-black text-purple-400 monospace">
+                                                                {(selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance)}
+                                                                <span className="text-[10px] ml-0.5">cm</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="px-2">
+                                                            <input
+                                                                type="range"
+                                                                min="2"
+                                                                max="400"
+                                                                disabled={selectedStation === "Antwerpen"}
+                                                                value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value);
+                                                                    console.log(`[Slider] New value for ${selectedStation}: ${val}`);
+                                                                    setSimDistance(val);
+                                                                }}
+                                                                onMouseUp={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
+                                                                onTouchEnd={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
+                                                                className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {selectedStation === "Antwerpen" && (
+                                                        <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex items-center gap-3">
+                                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500/60" />
+                                                            <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-tight uppercase leading-none">
+                                                                {t('real_station_safeguard')}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
+                                                        <div className="flex items-start gap-3">
+                                                            <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
+                                                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
+                                                                {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        )}
 
                     </div>
                 </div>
@@ -1112,7 +1387,26 @@ const App = () => {
                                             </div>
                                         </div>
 
+                                        <div className="mt-8 pt-8 border-t border-slate-800">
+                                            <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
+                                                <ShieldAlert className="w-4 h-4 text-sky-400" />
+                                                Cloud Settings
+                                            </h3>
+                                            <div className="space-y-3">
+                                                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Netlify API Key</label>
+                                                <input
+                                                    type="password"
+                                                    value={cloudApiKey}
+                                                    onChange={(e) => setCloudApiKey(e.target.value)}
+                                                    placeholder="Enter CLOUD_API_KEY"
+                                                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-sky-400 focus:border-sky-500 outline-none transition-all"
+                                                />
+                                                <p className="text-[9px] text-slate-600 font-medium">This key is required to save changes to the cloud. Find it in your Config.h (CLOUD_API_KEY).</p>
+                                            </div>
+                                        </div>
+
                                         <div className="mt-8 pt-8 border-t border-slate-800 pb-2">
+
                                             <h3 className="text-sm font-black tracking-tight flex items-center gap-3 mb-6">
                                                 <Waves className="w-4 h-4 text-sky-400" />
                                                 {t('language')}
@@ -1155,6 +1449,57 @@ const App = () => {
                             </div>
                         </motion.div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {isDeleteConfirmOpen && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsDeleteConfirmOpen(false)}
+                            className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative w-full max-w-sm rounded-[2rem] p-8 border border-red-500/20 bg-slate-900 shadow-2xl z-10"
+                        >
+                            <div className="flex flex-col items-center text-center gap-6">
+                                <div className="p-4 bg-red-500/10 rounded-2xl border border-red-500/20">
+                                    <Trash2 className="w-8 h-8 text-red-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold mb-2 text-white">
+                                        {t('delete_station')}
+                                    </h2>
+                                    <p className="text-slate-400 text-sm leading-relaxed">
+                                        {t('confirm_delete')}
+                                        <br />
+                                        <span className="text-red-400 font-bold mt-2 block uppercase tracking-wider">{stationToDelete}</span>
+                                    </p>
+                                </div>
+                                <div className="flex flex-col w-full gap-3 mt-4">
+                                    <button
+                                        onClick={handleDeleteStation}
+                                        className="w-full py-4 bg-red-500 hover:bg-red-400 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-500/10"
+                                    >
+                                        {t('delete')}
+                                    </button>
+                                    <button
+                                        onClick={() => setIsDeleteConfirmOpen(false)}
+                                        className="w-full py-4 bg-slate-800 hover:bg-slate-705 text-slate-300 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 border border-slate-700"
+                                    >
+                                        {t('cancel')}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div >

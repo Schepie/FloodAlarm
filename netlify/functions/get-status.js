@@ -1,18 +1,21 @@
 import { getStore } from "@netlify/blobs";
 
 export default async (req, context) => {
-    const STATIONS = ["Doornik", "Oudenaarde", "Gent", "Dendermonde", "Antwerpen"];
-
     try {
         const store = getStore("flood_data");
         const storedStations = await store.get("stations_data", { type: "json" }) || {};
 
-        // Merge stored data with defaults (simulated)
-        const allStations = STATIONS.reduce((acc, name) => {
-            const stored = storedStations[name] || {};
+        // Merge stored data with defaults (simulated), ignoring invalid keys
+        const allStations = {};
+        for (const [key, value] of Object.entries(storedStations)) {
+            if (key !== "null" && key !== "undefined" && key !== "" && key !== "belgium") {
+                allStations[key] = value;
+            }
+        }
 
-            // Generate dynamic weather for this request
-            const weather = {
+        // Add weather to all valid stations (dynamic for simulated feel)
+        for (const name in allStations) {
+            allStations[name].weather = {
                 temp: 10 + Math.floor(Math.random() * 8),
                 condition: "Variable",
                 rainProb: Math.floor(Math.random() * 100),
@@ -24,26 +27,11 @@ export default async (req, context) => {
                 ]
             };
 
-            acc[name] = {
-                distance: 100 + (Math.random() * 50),
-                warning: 30.0,
-                alarm: 15.0,
-                status: "NORMAL",
-                forecast: "Stable",
-                rainExpected: false,
-                lastSeen: new Date().toISOString(),
-                isSimulated: name !== "Antwerpen",
-                intervals: {
-                    sunny: 15,
-                    moderate: 10,
-                    stormy: 5,
-                    waterbomb: 2
-                },
-                ...stored,
-                weather // Force weather to be included/updated
-            };
-            return acc;
-        }, {});
+            // Ensure defaults if missing (for legacy data)
+            if (!allStations[name].river) allStations[name].river = "Schelde";
+            if (allStations[name].isSimulated === undefined) allStations[name].isSimulated = (name.toLowerCase() !== "antwerpen");
+        }
+
 
         // Add global Belgium weather for when no station is selected
         allStations["Belgium"] = {

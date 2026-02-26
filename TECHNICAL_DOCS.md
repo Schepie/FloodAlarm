@@ -109,3 +109,19 @@ Used by the ESP8266 or the App's Simulation Mode to update the shared state.
   "rainExpected": false
 }
 ```
+
+---
+
+## Coupling & River Grouping Strategy
+
+To support multi-station and multi-river deployments, the system uses a dynamic registration pattern.
+
+### 1. Provisioning
+During the initial set-up (WiFi Provisioning), the user must provide:
+- **Station Name**: A descriptive name for the sensor location (eg. "Antwerpen-Zuid").
+- **River**: The name of the river or water body (eg. "Schelde").
+
+### 2. Implementation Details
+- **ESP32/ESP8266**: Stores these values and sends them in every JSON push to the server.
+- **Server**: Automatically creates or updates the station entry based on the `station` name.
+- **Grouping**: The server includes the `river` metadata in the status response, allowing the app to group stations by river automatically.

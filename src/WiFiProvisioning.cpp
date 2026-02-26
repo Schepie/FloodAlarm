@@ -42,8 +42,16 @@ static const char PROV_PAGE[] PROGMEM = R"rawliteral(
     <input id="ssid" name="ssid" type="text" required placeholder="Your network name">
     <label for="pass">Password</label>
     <input id="pass" name="pass" type="password" placeholder="Network password">
+    
+    <label for="station">Station Name</label>
+    <input id="station" name="station" type="text" placeholder="eg. Antwerpen-Zuid">
+    
+    <label for="river">River Name</label>
+    <input id="river" name="river" type="text" placeholder="eg. Schelde">
+    
     <button type="submit">Connect &rarr;</button>
   </form>
+
 </div>
 </body>
 </html>
@@ -144,16 +152,27 @@ void WiFiProv::startProvisioningPortal() {
     server.on("/save", HTTP_POST, [&server]() {
         String ssid = server.arg("ssid");
         String pass = server.arg("pass");
+        String station = server.arg("station");
+        String river = server.arg("river");
+        
         ssid.trim();
         pass.trim();
+        station.trim();
+        river.trim();
 
         if (ssid.length() > 0) {
             prefs.begin("wifi", false);
             prefs.putString("ssid", ssid);
             prefs.putString("pass", pass);
+            
+            if (station.length() > 0) prefs.putString("station", station);
+            if (river.length() > 0) prefs.putString("river", river);
+            
             prefs.end();
-            Serial.printf("[WiFi] Stored creds for '%s'. Rebooting...\n", ssid.c_str());
+            Serial.printf("[WiFi] Stored creds: SSID='%s', Station='%s', River='%s'. Rebooting...\n", 
+                          ssid.c_str(), station.c_str(), river.c_str());
         }
+
 
         server.send_P(200, "text/html", PROV_DONE);
         delay(2000);

@@ -51,7 +51,13 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "window",
-        battery_warning: "(battery drains faster if measurement frequency increases)"
+        battery_warning: "(battery drains faster if measurement frequency increases)",
+        weather_condition: "Weather Condition",
+        real_station_safeguard: "Real Station: Distance simulation disabled to protect live data.",
+        delete_station: "Delete Station",
+        confirm_delete: "Are you sure you want to delete this measuring point? This action cannot be undone.",
+        cancel: "Cancel",
+        delete: "Delete"
     },
     nl: {
         title: "Overstromingsmonitor",
@@ -105,7 +111,13 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "venster",
-        battery_warning: "(batterij raakt sneller leeg bij hogere meetfrequentie)"
+        battery_warning: "(batterij raakt sneller leeg bij hogere meetfrequentie)",
+        weather_condition: "Weersomstandigheden",
+        real_station_safeguard: "Echt Station: Afstandssimulatie uitgeschakeld om live data te beschermen.",
+        delete_station: "Meetpunt Verwijderen",
+        confirm_delete: "Weet u zeker dat u dit meetpunt wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+        cancel: "Annuleren",
+        delete: "Verwijderen"
     },
     fr: {
         title: "Moniteur d'Inondation",
@@ -159,7 +171,13 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "fenêtre",
-        battery_warning: "(la batterie se vide plus rapidement si la fréquence de mesure augmente)"
+        battery_warning: "(la batterie se vide plus rapidement si la fréquence de mesure augmente)",
+        weather_condition: "Condition Météo",
+        real_station_safeguard: "Station Réelle : Simulation de distance désactivée pour protéger les données en direct.",
+        delete_station: "Supprimer la Station",
+        confirm_delete: "Êtes-vous sûr de vouloir supprimer ce point de mesure ? Cette action est irréversible.",
+        cancel: "Annuler",
+        delete: "Supprimer"
     },
     de: {
         title: "Hochwassermonitor",
@@ -213,6 +231,12 @@ export const translations = {
         min: "Min",
         max: "Max",
         window: "Fenster",
-        battery_warning: "(Batterie entlädt sich schneller, wenn die Messfrequenz erhöht wird)"
+        battery_warning: "(Batterie entlädt sich schneller, wenn die Messfrequenz erhöht wird)",
+        weather_condition: "Wetterlage",
+        real_station_safeguard: "Echte Station: Distanzsimulation zum Schutz der Live-Daten deaktiviert.",
+        delete_station: "Station Löschen",
+        confirm_delete: "Sind Sie sicher, dass Sie diesen Messpunkt löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+        cancel: "Abbrechen",
+        delete: "Löschen"
     }
 };

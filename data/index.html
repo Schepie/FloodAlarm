@@ -287,15 +287,41 @@
       color: var(--text-muted);
       font-size: .75rem;
     }
+
+    .sync-btn {
+      background: rgba(56, 189, 248, .1);
+      border: 1px solid rgba(56, 189, 248, .3);
+      color: var(--accent);
+      padding: .4rem 1rem;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: .75rem;
+      transition: all .2s;
+    }
+
+    .sync-btn:hover {
+      background: rgba(56, 189, 248, .2);
+      border-color: var(--accent);
+    }
+
+    .sync-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
 <body>
 
   <header>
-    <h1>&#x1F30A; Flood Monitor</h1>
+    <h1>&#x1F30A; <span id="headerStation">Flood Monitor</span></h1>
+    <p id="headerRiver" style="margin-top: -0.2rem; font-weight: 600; color: var(--accent); opacity: 0.8;"></p>
     <p><span class="conn-dot" id="connDot"></span><span id="connText">Connecting…</span></p>
+    <button id="syncBtn" class="sync-btn" onclick="triggerSync()">Sync with Cloud</button>
   </header>
+
 
   <div class="grid">
 
@@ -314,51 +340,61 @@
       </div>
     </div>
 
-    <!-- Status + Weather -->
-    <div class="card">
-      <h2>Status</h2>
-      <div style="margin-bottom:1rem">
-        <span class="badge badge-normal" id="statusBadge">NORMAL</span>
-      </div>
-      <h2>Weather Forecast</h2>
-      <div class="weather-status">
-        <span class="weather-icon" id="weatherIcon">&#x2600;&#xFE0F;</span>
-        <div class="weather-text">
-          <div class="forecast" id="weatherDesc">Loading…</div>
-          <div class="modifier" id="weatherMod">Thresholds: default</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Simulation Mode -->
-    <div class="card">
-      <h2>Simulation Mode</h2>
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem;">
-        <label class="switch">
-          <input type="checkbox" id="simToggle">
-          <span class="slider-round"></span>
-        </label>
-        <span id="simStatusText">Disabled</span>
-      </div>
-      <div id="simControls" style="opacity:0.5; pointer-events:none;">
-        <label style="display:block; font-size:0.75rem; margin-bottom:5px;">Simulated Distance: <span
-            id="simVal">100</span> cm</label>
-        <input type="range" id="simSlider" min="2" max="400" value="100"
-          style="width:100%; accent-color:var(--accent);">
-      </div>
-    </div>
+  </div>
 
-    <!-- Historical Chart -->
-    <div class="card full">
-      <h2>History (last 24 h)</h2>
-      <div class="chart-wrap">
-        <canvas id="histChart"></canvas>
-      </div>
+  <!-- Simulation Mode -->
+  <div class="card">
+    <h2>Simulation Mode</h2>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:1rem;">
+      <label class="switch">
+        <input type="checkbox" id="simToggle">
+        <span class="slider-round"></span>
+      </label>
+      <span id="simStatusText">Disabled</span>
     </div>
+    <div id="simControls" style="opacity:0.5; pointer-events:none;">
+      <label style="display:block; font-size:0.75rem; margin-bottom:5px;">Simulated Distance: <span
+          id="simVal">100</span> cm</label>
+      <input type="range" id="simSlider" min="2" max="400" value="100" style="width:100%; accent-color:var(--accent);">
+    </div>
+    <div
+      style="margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:10px;">
+      <label class="switch">
+        <input type="checkbox" id="autoSimToggle">
+        <span class="slider-round"></span>
+      </label>
+      <span style="font-size:0.85rem">Auto-Cycle (1 min)</span>
+    </div>
+  </div>
+
+  <!-- Station Settings -->
+  <div class="card">
+    <h2>Station Settings</h2>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <input type="text" id="settingStation" placeholder="Station Name"
+        style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+      <input type="text" id="settingRiver" placeholder="River Name"
+        style="background:var(--bg-primary); border:1px solid #334155; color:white; padding:8px; border-radius:8px;">
+      <button onclick="saveSettings()"
+        style="background:var(--accent); border:none; color:black; font-weight:bold; padding:8px; border-radius:8px; cursor:pointer;">Update
+        Station</button>
+    </div>
+    <p id="settingStatus" style="font-size:0.75rem; margin-top:5px; color:var(--text-muted)"></p>
+  </div>
+
+  <!-- Historical Chart -->
+  <div class="card full">
+    <h2>History (last 1 h)</h2>
+    <div class="chart-wrap">
+      <canvas id="histChart"></canvas>
+    </div>
+  </div>
 
   </div>
 
   <footer>ESP32 Flood Monitoring System &middot; Last updated: <span id="lastUpdate">Never</span></footer>
+
 
   <script>
     // ─── WebSocket ────────────────────────────────────────────────────────────
@@ -394,6 +430,35 @@
         .then(r => r.json())
         .then(d => updateLive(d))
         .catch(err => console.error('Status fetch error:', err));
+    }
+
+    function triggerSync() {
+      const btn = document.getElementById('syncBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+
+      fetch('/api/sync', { method: 'POST' })
+        .then(r => {
+          if (r.ok) {
+            btn.textContent = 'Synced!';
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }, 2000);
+            fetchStatus();
+          } else {
+            throw new Error('Sync failed');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          btn.textContent = 'Error!';
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+          }, 3000);
+        });
     }
 
     function updateLive(d) {
@@ -439,21 +504,22 @@
         badge.className = 'badge badge-' + d.status.toLowerCase();
       }
 
-      // Weather
-      const icon = document.getElementById('weatherIcon');
-      const desc = document.getElementById('weatherDesc');
-      const mod = document.getElementById('weatherMod');
-
-      desc.textContent = d.forecast || 'N/A';
-      if (d.rainExpected) {
-        icon.innerHTML = '&#x1F327;&#xFE0F;';
-        mod.textContent = 'Thresholds lowered 20% (rain expected)';
-        mod.classList.add('rain-active');
-      } else {
-        icon.innerHTML = '&#x2600;&#xFE0F;';
-        mod.textContent = 'Thresholds: default';
-        mod.classList.remove('rain-active');
+      // Additional Metadata
+      if (d.station) {
+        document.getElementById('headerStation').textContent = d.station;
+        if (document.activeElement !== document.getElementById('settingStation')) {
+          document.getElementById('settingStation').value = d.station;
+        }
       }
+      if (d.river) {
+        document.getElementById('headerRiver').textContent = d.river;
+        if (document.activeElement !== document.getElementById('settingRiver')) {
+          document.getElementById('settingRiver').value = d.river;
+        }
+      }
+      if (d.interval) document.getElementById('intervalVal').textContent = d.interval;
+
+
 
       // Update timestamp
       const nowStr = new Date().toLocaleTimeString();
@@ -482,6 +548,33 @@
         }
       }
     }
+
+    function saveSettings() {
+      const station = document.getElementById('settingStation').value;
+      const river = document.getElementById('settingRiver').value;
+      const status = document.getElementById('settingStatus');
+
+      status.textContent = "Updating...";
+      status.style.color = "var(--accent)";
+
+      const formData = new FormData();
+      formData.append('station', station);
+      formData.append('river', river);
+
+      fetch('/api/settings', {
+        method: 'POST',
+        body: formData
+      }).then(r => {
+        if (!r.ok) throw new Error("Failed to save");
+        status.textContent = "Saved! Cloud migration triggered.";
+        status.style.color = "var(--green)";
+        setTimeout(() => status.textContent = "", 5000);
+      }).catch(err => {
+        status.textContent = "Error: " + err.message;
+        status.style.color = "var(--red)";
+      });
+    }
+
 
     // ─── Simulation ───────────────────────────────────────────────────────────
     const simToggle = document.getElementById('simToggle');
@@ -518,6 +611,23 @@
       sendSim();
     };
 
+<<<<<<< HEAD
+=======
+    const autoSimToggle = document.getElementById('autoSimToggle');
+    autoSimToggle.onchange = () => {
+      const formData = new FormData();
+      formData.append('enabled', autoSimToggle.checked);
+      fetch('/api/autosim', {
+        method: 'POST',
+        body: formData
+      }).catch(err => console.error('AutoSim error:', err));
+    };
+
+    connectWS();
+
+    fetchStatus();
+
+>>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
     // ─── Historical Chart ─────────────────────────────────────────────────────
     const ctx = document.getElementById('histChart').getContext('2d');
     const chart = new Chart(ctx, {
@@ -546,6 +656,8 @@
           },
           y: {
             reverse: true,   // lower distance = higher water → show danger at top
+            suggestedMin: 0,
+            suggestedMax: 200,
             ticks: { color: '#94a3b8', font: { size: 10 } },
             grid: { color: 'rgba(255,255,255,.04)' },
             title: { display: true, text: 'Distance (cm)', color: '#94a3b8' }
@@ -573,18 +685,34 @@
 
           const labels = [];
           const data = [];
+          const now = Math.floor(Date.now() / 1000);
+          const oneHourAgo = now - 3600;
 
           for (let i = 1; i < lines.length; i++) {
             const parts = lines[i].split(',');
             if (parts.length < 2) continue;
             const ts = parseInt(parts[0]);
+            if (ts < oneHourAgo) continue; // Filter for last 1 hour
             const dist = parseFloat(parts[1]);
+
             // Format timestamp as HH:MM
             const d = new Date(ts * 1000);
             const hh = String(d.getHours()).padStart(2, '0');
             const mm = String(d.getMinutes()).padStart(2, '0');
             labels.push(hh + ':' + mm);
             data.push(dist);
+          }
+
+          if (labels.length === 0 && lines.length > 1) {
+            for (let i = 1; i < lines.length; i++) {
+              const parts = lines[i].split(',');
+              if (parts.length < 2) continue;
+              const ts = parseInt(parts[0]);
+              const dist = parseFloat(parts[1]);
+              const d = new Date(ts * 1000);
+              labels.push(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
+              data.push(dist);
+            }
           }
 
           chart.data.labels = labels;
@@ -595,6 +723,7 @@
         .catch(err => console.error('History fetch error:', err));
     }
 
+<<<<<<< HEAD
     // Initial load
     fetchHistory();
     // Start network
@@ -602,6 +731,11 @@
     fetchStatus();
     // Refresh every 10 min
     setInterval(fetchHistory, 600000);
+=======
+    // Initial load + refresh every 1 min
+    fetchHistory();
+    setInterval(fetchHistory, 60000);
+>>>>>>> 67b61288e99a83ceb6c2492f030ee9e82ebd5de8
   </script>
 </body>
 
