@@ -522,7 +522,7 @@ const App = () => {
         return diffMin > bufferWindow;
     };
 
-    const status = allStations[selectedStation] || allStations["Belgium"];
+    const status = allStations[selectedStation] || Object.values(allStations)[0];
 
     const getStatusColor = () => {
         if (isOffline) return 'text-red-500';
@@ -725,7 +725,7 @@ const App = () => {
                                         <div className="space-y-3">
                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">{t('three_day_outlook')}</p>
                                             <div className="grid grid-cols-3 gap-3">
-                                                {status?.weather?.daily.map((day, i) => (
+                                                {status?.weather?.daily?.map((day, i) => (
                                                     <div key={i} className="bg-slate-900/30 p-3 rounded-2xl border border-slate-800/50 flex flex-col items-center gap-2">
                                                         <span className="text-[10px] font-black text-slate-500">{day.day}</span>
                                                         {day.icon === 'cloud-rain' ? <CloudRain className="w-5 h-5 text-sky-400" /> :
@@ -1024,7 +1024,7 @@ const App = () => {
                                     </div>
                                     <div className="flex justify-between items-center px-4 py-3 bg-white/5 rounded-2xl border border-white/5">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aggregated Rain</span>
-                                        <span className="text-sm font-black text-slate-100">{Math.max(...Object.values(allStations).map(s => s.weather?.rainProb || 0))}% {t('max_rain')}</span>
+                                        <span className="text-sm font-black text-slate-100">{Math.max(0, ...Object.values(allStations).map(s => s.weather?.rainProb || 0))}% {t('max_rain')}</span>
                                     </div>
                                 </div>
 
