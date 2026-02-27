@@ -383,7 +383,6 @@
     <p id="settingStatus" style="font-size:0.75rem; margin-top:5px; color:var(--text-muted)"></p>
   </div>
 
-  <!-- Historical Chart -->
   <div class="card full">
     <h2>History (last 1 h)</h2>
     <div class="chart-wrap">
@@ -576,6 +575,9 @@
     }
 
 
+    connectWS();
+
+
     // ─── Simulation ───────────────────────────────────────────────────────────
     const simToggle = document.getElementById('simToggle');
     const simSlider = document.getElementById('simSlider');
@@ -622,8 +624,6 @@
         }).catch(err => console.error('AutoSim error:', err));
       };
     }
-
-    connectWS();
     fetchStatus();
     // ─── Historical Chart ─────────────────────────────────────────────────────
     const ctx = document.getElementById('histChart').getContext('2d');

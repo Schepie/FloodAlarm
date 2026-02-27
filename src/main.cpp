@@ -14,7 +14,6 @@
 #include "WebHandler.h"
 #include "WiFiProvisioning.h"
 
-
 static Preferences settings;
 
 // ─── Globals ────────────────────────────────────────────────────────────────
@@ -67,6 +66,8 @@ void setSimulation(bool active, float distance) {
                 distance);
   triggerManualSync(); // Force immediate sync when toggling/changing simulation
 }
+
+// ─── Manual Sync Control ────────────────────────────────────────────────────
 
 // ─── NTP Time ───────────────────────────────────────────────────────────────
 
@@ -177,6 +178,8 @@ void loop() {
     triggerManualSync(); // Ensure the 1-minute auto-cycle value is pushed
                          // immediately
   }
+
+  // ── Read sensor ─────────────────────────────────────────────────────
 
   // ── Read sensor ─────────────────────────────────────────────────────
   if (now - lastSensorRead >= currentIntervalMs) {

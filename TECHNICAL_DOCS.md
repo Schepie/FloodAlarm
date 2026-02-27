@@ -52,13 +52,15 @@ Returns the last 24 hours of logged sensor readings.
 ---
 
 ### 3. Simulation Control
-Allows manual override of the sensor distance for testing.
+Allows triggering a manual override for the sensor level to test UI reaction and flood scenarios.
 
 **URL**: `/simulate`  
 **Method**: `POST`  
 **Parameters**:
 - `active`: `"true"` or `"false"`
-- `distance`: Float value (e.g., `12.5`)
+- `distance`: Float value in cm (eg. `10.5`)
+
+**Response**: `200 OK`
 
 ---
 
@@ -92,8 +94,8 @@ The app retrieves the latest stored status from the cloud.
 **Method**: `GET`  
 **Response Format**: `JSON`
 
-### 6. Cloud Push (Device/Simulation)
-Used by the ESP8266 or the App's Simulation Mode to update the shared state.
+### 6. Cloud Push (Device)
+Used by the ESP8266 to update the shared state.
 
 **URL**: `/.netlify/functions/push-status`  
 **Method**: `POST`  

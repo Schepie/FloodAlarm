@@ -233,12 +233,9 @@ const HistoricalGraph = ({ data, timeframe, warning, alarm }) => {
 };
 
 const App = () => {
-    const lastSimPush = React.useRef(0);
     const [allStations, setAllStations] = useState({});
     const [selectedStation, setSelectedStation] = useState("Antwerpen");
     const [isOffline, setIsOffline] = useState(false);
-    const [isSimActive, setIsSimActive] = useState(false);
-    const [simDistance, setSimDistance] = useState(100);
     const [notifyMsg, setNotifyMsg] = useState('');
     const [lastNotifiedState, setLastNotifiedState] = useState({});
     const [expandedRivers, setExpandedRivers] = useState({ SCHELDE: true });
@@ -257,8 +254,6 @@ const App = () => {
     const [timeframe, setTimeframe] = useState('24h');
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isWeatherCompact, setIsWeatherCompact] = useState(false);
-    const [isSimCompact, setIsSimCompact] = useState(true);
-    const [simWeather, setSimWeather] = useState('sunny'); // 'sunny', 'moderate', 'stormy', 'waterbomb'
     const [cloudApiKey, setCloudApiKey] = useState(localStorage.getItem('flood_api_key') || '');
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [stationToDelete, setStationToDelete] = useState(null);
@@ -285,12 +280,6 @@ const App = () => {
     useEffect(() => {
         if (selectedStation) {
             fetchHistory(selectedStation);
-
-            // Sync simulator distance with current cloud value if it exists
-            const currentStat = allStations[selectedStation];
-            if (currentStat && currentStat.distance !== undefined && selectedStation !== "Antwerpen") {
-                setSimDistance(currentStat.distance);
-            }
         } else {
             setStationHistory([]);
         }
@@ -306,12 +295,6 @@ const App = () => {
             const res = await fetch(`/.netlify/functions/get-status?t=${Date.now()}`);
             if (!res.ok) throw new Error('Cloud unreachable');
             const data = await res.json();
-
-            // Ignore fetch if we just pushed simulator data (give edge blobs 5s to sync)
-            if (Date.now() - lastSimPush.current < 5000) {
-                console.log("[Sync] Ignoring fetchStatus to prevent stale blob overwrite");
-                return;
-            }
 
             // Remap cloud keys (now lowercase) back to display-name keys so all
             // existing allStations[selectedStation] lookups keep working.
@@ -461,86 +444,9 @@ const App = () => {
                 if (current.warning !== undefined) setLocalWarning(current.warning);
                 if (current.alarm !== undefined) setLocalAlarm(current.alarm);
                 if (current.intervals) setLocalIntervals(current.intervals);
-
-                // Also sync simulator distance for virtual stations
-                if (current.distance !== undefined && selectedStation !== "Antwerpen") {
-                    setSimDistance(current.distance);
-                }
             }
         }
     }, [selectedStation, allStations, isSettingsOpen]); // Added isSettingsOpen
-
-    const handleSimPush = async (station, distance, forceWeather) => {
-        if (!cloudApiKey.trim()) return;
-
-        console.log(`[Sim] Pushing to ${station}: ${distance}cm (Force Weather: ${forceWeather || 'None'})`);
-
-        const finalDistance = distance; // Always use the slider value
-        const weatherToUse = forceWeather || simWeather;
-
-        const weatherMap = {
-            sunny: { forecast: "Simulation: Clear", rain: false },
-            moderate: { forecast: "Simulation: Moderate Rain", rain: true },
-            stormy: { forecast: "Simulation: Stormy / Heavy", rain: true },
-            waterbomb: { forecast: "Simulation: Waterbomb", rain: true }
-        };
-
-        const w = weatherMap[weatherToUse] || weatherMap.sunny;
-
-        try {
-            lastSimPush.current = Date.now();
-            const res = await fetch(`/.netlify/functions/push-status`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cloudApiKey.trim()}`,
-                    'x-api-key': cloudApiKey.trim()
-                },
-                body: JSON.stringify({
-                    station,
-                    distance: finalDistance,
-                    warning: parseFloat(localWarning),
-                    alarm: parseFloat(localAlarm),
-                    status: finalDistance <= parseFloat(localAlarm) ? 'ALARM' : (finalDistance <= parseFloat(localWarning) ? 'WARNING' : 'NORMAL'),
-                    simWeatherTier: weatherToUse,  // cloud uses this to set weather+interval
-                    intervals: localIntervals,
-                    isUiUpdate: true
-                })
-            });
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error(`Simulation push failed: ${errorText}`);
-                throw new Error('Push failed');
-            }
-
-            const resData = await res.json();
-            if (resData.success && resData.data) {
-                setAllStations(prev => ({
-                    ...prev,
-                    [station]: resData.data
-                }));
-            }
-
-            // Delay history fetch slightly to allow Netlify Edge Blobs to propagate
-            setTimeout(() => {
-                fetchHistory(station);
-            }, 1500);
-
-        } catch (e) {
-            console.error("Simulation push failed", e);
-        }
-    };
-
-    const handleSimChange = async (active, distance) => {
-        setIsSimActive(active);
-        setSimDistance(distance);
-
-        if (active) {
-            handleSimPush(selectedStation, distance);
-        } else {
-            handleSimPush(selectedStation, distance, 'sunny');
-        }
-    };
 
     const sendNotify = async () => {
         if (!notifyMsg.trim()) return;
@@ -753,22 +659,18 @@ const App = () => {
                                             </div>
                                             {(() => {
                                                 const iv = localIntervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
-                                                // When simulator is active, use simWeather directly — real ESP overwrites cloud forecast continuously
+                                                const fc = (status?.forecast || '').toLowerCase();
                                                 let tier;
-                                                if (isSimActive) {
-                                                    tier = simWeather; // 'sunny' | 'moderate' | 'stormy' | 'waterbomb'
+                                                if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
+                                                    tier = 'waterbomb';
+                                                } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
+                                                    tier = 'stormy';
+                                                } else if (status?.rainExpected || fc.includes('rain')) {
+                                                    tier = 'moderate';
                                                 } else {
-                                                    const fc = (status?.forecast || '').toLowerCase();
-                                                    if (status?.status === 'ALARM' || fc.includes('waterbomb')) {
-                                                        tier = 'waterbomb';
-                                                    } else if (status?.status === 'WARNING' || fc.includes('stormy') || fc.includes('heavy')) {
-                                                        tier = 'stormy';
-                                                    } else if (status?.rainExpected || fc.includes('rain')) {
-                                                        tier = 'moderate';
-                                                    } else {
-                                                        tier = 'sunny';
-                                                    }
+                                                    tier = 'sunny';
                                                 }
+
                                                 const mins = iv[tier];
                                                 const colors = {
                                                     sunny: 'text-emerald-400',
@@ -931,9 +833,6 @@ const App = () => {
                                                                                 {s?.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : t('never')}
                                                                             </span>
                                                                         </div>
-                                                                        {s?.isSimulated && (
-                                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-600 border border-slate-700 uppercase">{t('sim_control')}</span>
-                                                                        )}
                                                                     </div>
 
                                                                     {/* Historical Graph & Info */}
@@ -1078,144 +977,6 @@ const App = () => {
                     </div>
 
                     <div className="space-y-6">
-                        {/* Simulator */}
-                        {selectedStation && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`glass-card rounded-3xl transition-all duration-300 ${isSimCompact ? 'p-4' : 'p-6'}`}
-                            >
-                                <button
-                                    onClick={() => setIsSimCompact(!isSimCompact)}
-                                    className="flex items-center justify-between w-full group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg transition-colors ${isSimActive ? 'bg-purple-500/20' : 'bg-slate-800'}`}>
-                                            <Activity className={`w-4 h-4 ${isSimActive ? 'text-purple-400' : 'text-slate-500'}`} />
-                                        </div>
-                                        <span className="text-sm font-black uppercase tracking-[0.2em] text-purple-400">
-                                            {selectedStation} SIMULATOR
-                                        </span>
-
-                                        {isSimCompact && isSimActive && (
-                                            <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-500">
-                                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                                    {simDistance}cm
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {isSimCompact ? <ChevronRight className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                                    </div>
-                                </button>
-
-                                <AnimatePresence>
-                                    {!isSimCompact && (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                            animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
-                                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div className={`space-y-6 transition-opacity duration-300`}>
-                                                <div className="flex items-center justify-between p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</span>
-                                                        <span className={`text-xs font-black ${isSimActive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                                            {isSimActive ? 'SIMULATION ACTIVE' : 'INACTIVE'}
-                                                        </span>
-                                                    </div>
-                                                    <div
-                                                        onClick={() => handleSimChange(!isSimActive, simDistance)}
-                                                        className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isSimActive ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                                    >
-                                                        <div className={`bg-white w-4 h-4 rounded-full transition-transform ${isSimActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                    </div>
-                                                </div>
-
-                                                <div className={`space-y-4 transition-all duration-300 ${isSimActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-
-                                                    {/* Weather Selection */}
-                                                    <div className="space-y-3 pb-2">
-                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('weather_condition')}</span>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            {[
-                                                                { id: 'sunny', label: t('sunny'), icon: Sun },
-                                                                { id: 'moderate', label: t('moderate'), icon: CloudRain },
-                                                                { id: 'stormy', label: t('stormy'), icon: CloudLightning },
-                                                                { id: 'waterbomb', label: t('waterbomb'), icon: Waves }
-                                                            ].map(w => (
-                                                                <button
-                                                                    key={w.id}
-                                                                    onClick={() => {
-                                                                        setSimWeather(w.id);
-                                                                        handleSimPush(selectedStation, simDistance, w.id);
-                                                                    }}
-                                                                    className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${simWeather === w.id
-                                                                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
-                                                                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
-                                                                        }`}
-                                                                >
-                                                                    <w.icon className={`w-3.5 h-3.5 ${simWeather === w.id ? 'text-purple-400' : 'text-slate-500'}`} />
-                                                                    <span className="text-[10px] font-black uppercase tracking-tight">{w.label}</span>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className={`space-y-4 ${selectedStation === "Antwerpen" ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-                                                        <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                            <span>{t('virtual_distance')}</span>
-                                                            <span className="text-xl font-black text-purple-400 monospace">
-                                                                {(selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance)}
-                                                                <span className="text-[10px] ml-0.5">cm</span>
-                                                            </span>
-                                                        </div>
-                                                        <div className="px-2">
-                                                            <input
-                                                                type="range"
-                                                                min="2"
-                                                                max="400"
-                                                                disabled={selectedStation === "Antwerpen"}
-                                                                value={selectedStation === "Antwerpen" ? (status?.distance || 100) : simDistance}
-                                                                onChange={(e) => {
-                                                                    const val = parseInt(e.target.value);
-                                                                    console.log(`[Slider] New value for ${selectedStation}: ${val}`);
-                                                                    setSimDistance(val);
-                                                                }}
-                                                                onMouseUp={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
-                                                                onTouchEnd={(e) => handleSimPush(selectedStation, parseInt(e.target.value))}
-                                                                className="w-full accent-purple-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer"
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {selectedStation === "Antwerpen" && (
-                                                        <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex items-center gap-3">
-                                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500/60" />
-                                                            <p className="text-[9px] text-amber-500/70 font-black uppercase tracking-tight uppercase leading-none">
-                                                                {t('real_station_safeguard')}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="p-4 bg-purple-500/5 rounded-2xl border border-purple-500/10">
-                                                        <div className="flex items-start gap-3">
-                                                            <AlertTriangle className="w-4 h-4 text-purple-500/60 mt-0.5" />
-                                                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tight">
-                                                                {selectedStation === "Antwerpen" ? t('sim_warning') : t('sim_upstream')}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        )}
-
                     </div>
                 </div>
             </div>

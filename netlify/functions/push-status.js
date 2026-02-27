@@ -126,7 +126,7 @@ export default async (req, context) => {
 
         // ESP only sends: distance, status, station, river
         // UI additionally sends: warning, alarm, intervals, isUiUpdate, simWeatherTier
-        let { distance, warning, alarm, status, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate, simWeatherTier } = body;
+        let { distance, warning, alarm, status, station = "Antwerpen", river = "Schelde", intervals, isUiUpdate } = body;
         const stationKey = station.toLowerCase().trim();
 
         console.log(`[Cloud] Normalized Key: "${stationKey}" (isUiUpdate: ${!!isUiUpdate})`);
@@ -147,28 +147,7 @@ export default async (req, context) => {
         const hasExistingConfig = existingData.warning !== undefined && existingData.alarm !== undefined;
 
         // Fetch weather server-side (cached 30 min)
-        // If simulator is active (simWeatherTier sent by UI), override with sim tier
-        let weather;
-        if (isUiUpdate && simWeatherTier) {
-            // Simulator weather override — don't hit OWM
-            const tierMap = {
-                sunny: { forecast: "Simulation: Clear", rainExpected: false, tier: "sunny" },
-                moderate: { forecast: "Simulation: Moderate Rain", rainExpected: true, tier: "moderate" },
-                stormy: { forecast: "Simulation: Stormy / Heavy", rainExpected: true, tier: "stormy" },
-                waterbomb: { forecast: "Simulation: Waterbomb", rainExpected: true, tier: "waterbomb" }
-            };
-            weather = tierMap[simWeatherTier] || tierMap.sunny;
-            console.log(`[Weather] Using simulator override: ${simWeatherTier}`);
-        } else {
-            // Real weather from OWM
-            weather = await fetchStationWeather(stationKey, weatherStore);
-            // If a forced tier is stored (from simulator), override the OWM-derived tier for interval calc
-            // so the ESP gets the right interval even on its own push cycle
-            if (existingData.forcedWeatherTier && existingData.forcedWeatherTier !== 'sunny') {
-                weather.tier = existingData.forcedWeatherTier;
-                console.log(`[Weather] Using stored forcedWeatherTier: ${existingData.forcedWeatherTier} (overrides OWM tier)`);
-            }
-        }
+        const weather = await fetchStationWeather(stationKey, weatherStore);
 
         const isValidReading = distance !== undefined && distance > 0;
 
@@ -191,11 +170,6 @@ export default async (req, context) => {
             intervals: isUiUpdate
                 ? (intervals || existingData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 })
                 : (hasExistingConfig ? existingData.intervals : (intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 })),
-            // Persist the simulator's forced tier so real ESP pushes also get the right interval.
-            // Cleared (null) when simulator is set to sunny (deactivated).
-            forcedWeatherTier: isUiUpdate && simWeatherTier
-                ? (simWeatherTier === 'sunny' ? null : simWeatherTier)
-                : existingData.forcedWeatherTier || null,
             lastSeen: new Date().toISOString()
         };
 
@@ -231,17 +205,12 @@ export default async (req, context) => {
         await historyStore.setJSON(historyKey, history);
 
         // --- Determine next interval ---
-        // Priority: 1) Simulator override (forcedWeatherTier) → 2) ALARM → 3) WARNING → 4) OWM weather tier
+        // Priority: 1) ALARM → 2) WARNING → 3) OWM weather tier
         const userIntervals = sensorData.intervals || { sunny: 15, moderate: 10, stormy: 5, waterbomb: 2 };
-        const forcedTier = sensorData.forcedWeatherTier;
         const weatherTier = sensorData.weatherTier;
         let nextInterval;
 
-        if (forcedTier && forcedTier !== 'sunny') {
-            // Simulator is active — its tier wins over everything, even real WARNING/ALARM status
-            nextInterval = userIntervals[forcedTier] * 60;
-            console.log(`[Interval] Forced by simulator: ${forcedTier} → ${nextInterval}s`);
-        } else if (status === 'ALARM') {
+        if (status === 'ALARM') {
             nextInterval = userIntervals.waterbomb * 60;
         } else if (status === 'WARNING') {
             nextInterval = userIntervals.stormy * 60;
