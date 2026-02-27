@@ -372,16 +372,6 @@ const App = () => {
     }, [allStations]);
 
     const handleSaveSettings = async () => {
-        if (!cloudApiKey.trim()) {
-            alert('Please enter your Cloud API Key in the settings first. You can find it in your Config.h (CLOUD_API_KEY).');
-            return;
-        }
-
-        if (!selectedStation) {
-            alert('Please select a specific measuring station from the river list before saving settings.');
-            return;
-        }
-
         let cleanKey = cloudApiKey.trim();
         // If user accidentally pasted the whole #define line from Config.h
         if (cleanKey.includes('#define') || cleanKey.includes('"')) {
@@ -392,6 +382,27 @@ const App = () => {
                 const parts = cleanKey.split(/\s+/);
                 if (parts.length > 2 && parts[0] === '#define') cleanKey = parts[2];
             }
+        }
+
+        // Always persist the key to localStorage if entered
+        if (cleanKey) {
+            localStorage.setItem('flood_api_key', cleanKey);
+            setCloudApiKey(cleanKey);
+        }
+
+        if (!selectedStation) {
+            if (cleanKey) {
+                alert('Cloud API Key saved locally. Select a station to sync thresholds/intervals to the cloud.');
+                setIsSettingsOpen(false);
+            } else {
+                alert('Please select a specific measuring station from the river list before saving settings.');
+            }
+            return;
+        }
+
+        if (!cleanKey) {
+            alert('Please enter your Cloud API Key in the settings first. You can find it in your Config.h (CLOUD_API_KEY).');
+            return;
         }
 
         try {
@@ -427,8 +438,6 @@ const App = () => {
                 throw new Error('Save failed');
             }
 
-            localStorage.setItem('flood_api_key', cleanKey);
-            setCloudApiKey(cleanKey);
             setIsSettingsOpen(false);
             fetchStatus();
 
